@@ -154,6 +154,11 @@ export const staffService = {
   },
 
   async resolveAdminAccess(userId: string, email: string): Promise<boolean> {
+    if (!email?.trim()) return false;
+    if (ADMIN_EMAILS.map((e) => e.toLowerCase()).includes(email.trim().toLowerCase())) {
+      return true;
+    }
+
     const sb = getSupabaseSafe();
     if (!sb) return isStaffEmail(email);
 
@@ -172,8 +177,6 @@ export const staffService = {
       .eq("is_active", true)
       .maybeSingle();
 
-    if (staff) return true;
-
-    return ADMIN_EMAILS.map((e) => e.toLowerCase()).includes(email.trim().toLowerCase());
+    return !!staff;
   },
 };

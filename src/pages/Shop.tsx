@@ -46,8 +46,9 @@ export default function Shop() {
   }, [searchParams]);
 
   const filteredProducts = products.filter((p) => {
-    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          p.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch =
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.description ?? "").toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === "Alla" || p.category.toLowerCase() === selectedCategory.toLowerCase();
     return matchesSearch && matchesCategory;
   });

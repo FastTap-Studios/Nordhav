@@ -68,23 +68,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    sb.auth.getSession().then(async ({ data: { session } }: { data: { session: Session | null } }) => {
-      const mapped = mapUser(session?.user ?? null);
-      setUser(mapped);
-      setIsAdmin(await resolveAdmin(mapped));
-      setLoading(false);
-    });
+    let mounted = true;
+
+    const syncFromSession = (session: Session | null) => {
+      void (async () => {
+        const mapped = mapUser(session?.user ?? null);
+        if (!mounted) return;
+        setUser(mapped);
+        try {
+          setIsAdmin(await resolveAdmin(mapped));
+        } catch (err) {
+          console.warn("[Auth] resolveAdmin failed:", err);
+          setIsAdmin(mapped ? isStaffEmail(mapped.email) : false);
+        } finally {
+          if (mounted) setLoading(false);
+        }
+      })();
+    };
+
+    // Defer Supabase calls to avoid auth client deadlock (getSession + onAuthStateChange).
+    sb.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        setTimeout(() => syncFromSession(session), 0);
+      })
+      .catch((err) => {
+        console.warn("[Auth] getSession failed:", err);
+        if (mounted) setLoading(false);
+      });
 
     const {
       data: { subscription },
-    } = sb.auth.onAuthStateChange(async (_event, session) => {
-      const mapped = mapUser(session?.user ?? null);
-      setUser(mapped);
-      setIsAdmin(await resolveAdmin(mapped));
-      setLoading(false);
+    } = sb.auth.onAuthStateChange((event, session) => {
+      if (event === "INITIAL_SESSION") return;
+      setTimeout(() => syncFromSession(session), 0);
     });
 
-    return () => subscription.unsubscribe();
+    const safety = window.setTimeout(() => {
+      if (mounted) setLoading(false);
+    }, 6000);
+
+    return () => {
+      mounted = false;
+      window.clearTimeout(safety);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const login = async (email?: string, password?: string) => {

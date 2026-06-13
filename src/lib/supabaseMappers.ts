@@ -3,6 +3,19 @@ import { resolveImageUrl, resolveImageUrls } from "./images";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+function normalizeImageUrls(raw: unknown): string[] {
+  if (Array.isArray(raw)) return resolveImageUrls(raw as string[]);
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? resolveImageUrls(parsed) : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 export function productFromRow(row: any): Product {
   return {
     id: row.id,
@@ -10,7 +23,7 @@ export function productFromRow(row: any): Product {
     description: row.description ?? "",
     price: Number(row.price),
     imageUrl: resolveImageUrl(row.image_url ?? ""),
-    imageUrls: resolveImageUrls(row.image_urls ?? []),
+    imageUrls: normalizeImageUrls(row.image_urls),
     stock: row.stock ?? 0,
     category: row.category ?? "Beten",
     createdAt: row.created_at,
