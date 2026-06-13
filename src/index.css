@@ -1,0 +1,32 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Playfair Display", ui-serif, Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --color-background: hsl(0 0% 99%);
+  --color-foreground: hsl(220 20% 10%);
+  --color-card: hsl(0 0% 100%);
+  --color-card-foreground: hsl(220 20% 10%);
+  --color-primary: hsl(213 75% 22%);
+  --color-primary-foreground: hsl(0 0% 100%);
+  --color-secondary: hsl(213 25% 94%);
+  --color-secondary-foreground: hsl(213 40% 20%);
+  --color-muted: hsl(220 15% 95%);
+  --color-muted-foreground: hsl(220 10% 50%);
+  --color-accent: hsl(18 95% 55%);
+  --color-accent-foreground: hsl(0 0% 100%);
+  --color-destructive: hsl(0 84% 60%);
+  --color-border: hsl(220 15% 90%);
+  --color-chart-1: hsl(213 75% 22%);
+  --color-chart-2: hsl(18 95% 55%);
+}
+
+.admin-shell {
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  background-color: hsl(0 0% 99%);
+  color: hsl(220 20% 10%);
+}

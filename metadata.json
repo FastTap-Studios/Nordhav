@@ -1,0 +1,6 @@
+{
+  "name": "Nordhav",
+  "description": "Premium e-handel för högkvalitativ fiskeutrustning utformat i skandinavisk minimalistisk stil med avancerad parallax-grafik och säker Klarna & Swish-betalning.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,5 @@
+# Cloudflare Pages – samma mönster som Salon-projektet.
+# Dashboard: Build command = npm run build:pages, Output directory = dist
+name = "nordhav"
+compatibility_date = "2024-01-01"
+pages_build_output_dir = "dist"

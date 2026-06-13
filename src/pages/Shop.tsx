@@ -1,0 +1,183 @@
+import { useState, useEffect } from "react";
+import { Product } from "../types";
+import { useCart } from "../hooks/useCart";
+import { dbService } from "../services/db";
+import { motion } from "motion/react";
+import { ShoppingCart, Search, Star, Check } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+
+export default function Shop() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedCategory = searchParams.get("category") || "Alla";
+  const { addToCart } = useCart();
+
+  useEffect(() => {
+    async function fetchProducts() {
+      try {
+        const data = await dbService.getProducts();
+        setProducts(data.filter((p) => p.isActive !== false));
+      } catch (error) {
+        console.error("Error fetching products:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchProducts();
+  }, []);
+
+  const handleCategorySelect = (category: string) => {
+    if (category === "Alla") {
+      searchParams.delete("category");
+    } else {
+      searchParams.set("category", category);
+    }
+    setSearchParams(searchParams);
+  };
+
+  // Synchronize state with URL search parameters
+  useEffect(() => {
+    const urlSearch = searchParams.get("search");
+    if (urlSearch) {
+      setSearchTerm(urlSearch);
+    }
+  }, [searchParams]);
+
+  const filteredProducts = products.filter((p) => {
+    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          p.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = selectedCategory === "Alla" || p.category.toLowerCase() === selectedCategory.toLowerCase();
+    return matchesSearch && matchesCategory;
+  });
+
+  return (
+    <div className="bg-[#fafbfc] min-h-screen py-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        {/* Banner header resembling high-end outdoor store */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6 pb-6 border-b border-slate-200/60">
+          <div className="space-y-2">
+            <span className="text-[10px] font-black uppercase tracking-widest text-[#0e2c22] font-mono bg-emerald-50 px-3.5 py-1.5 rounded-full border border-emerald-100">STORSÄLJARE & KVALITET</span>
+            <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight uppercase sm:text-5xl mt-2">VÅRT SORTIMENT</h1>
+            <p className="text-slate-500 font-medium text-sm">Högkänslig rörlighet, extrema färgval och handjusterad gång för nordiska rovfiskar.</p>
+          </div>
+
+          <div className="relative group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-[#0b231a] transition-colors" />
+            <input
+              type="text"
+              placeholder="Sök premiumutrustning..."
+              className="bg-white border border-slate-200 rounded-2xl pl-12 pr-4 py-3.5 min-w-[320px] shadow-inner text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#0b231a] focus:border-transparent transition-all"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* Categories filters styled as luxury filters */}
+        <div className="flex items-center space-x-3 mb-12 overflow-x-auto pb-4 scrollbar-thin">
+          <span className="text-xs font-black text-slate-400 uppercase tracking-widest font-mono hidden sm:inline-block mr-2">AVDELNING:</span>
+          {["Alla", "Beten", "Spön", "Rullar", "Fiskekläder", "Tillbehör"].map((cat) => (
+            <button
+              key={cat}
+              onClick={() => handleCategorySelect(cat)}
+              className={`px-7 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap border ${
+                selectedCategory.toLowerCase() === cat.toLowerCase()
+                  ? "bg-[#0b231a] border-[#0b231a] text-amber-400 shadow-md"
+                  : "bg-white border-slate-200 text-slate-600 hover:border-[#0b231a] hover:text-[#0b231a]"
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#0b231a] border-t-transparent" />
+          </div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="bg-white rounded-3xl p-16 text-center border border-slate-200/50 shadow-inner">
+            <p className="text-slate-500 font-extrabold text-sm uppercase font-mono">Inga produkter hittades i vårt lager.</p>
+            {products.length === 0 ? (
+              <p className="text-xs text-slate-400 mt-2 italic">Tips: Logga in som admin och lägg till premiumartiklar!</p>
+            ) : (
+              <button 
+                onClick={() => { setSearchTerm(""); handleCategorySelect("Alla"); }}
+                className="mt-6 inline-flex bg-[#0b231a] text-white px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-emerald-800 transition-all"
+              >
+                ÅTERSTÄLL SÖKNING_
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+            {filteredProducts.map((product) => (
+              <motion.div
+                key={product.id}
+                layout
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-white rounded-[2.2rem] overflow-hidden border border-slate-200/60 shadow-sm hover:shadow-xl transition-all group flex flex-col"
+              >
+                <Link to={`/product/${product.id}`} className="relative aspect-square overflow-hidden bg-slate-50 block">
+                  <img
+                    src={product.imageUrl}
+                    alt={product.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                  {product.stock <= 0 ? (
+                    <div className="absolute inset-0 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center">
+                      <span className="text-white font-extrabold text-xs tracking-widest uppercase py-2 px-5 border-2 border-amber-500 text-amber-400 rounded-full">TILLFÄLLIGT SLUT</span>
+                    </div>
+                  ) : product.stock <= 4 ? (
+                    <div className="absolute top-4 left-4 bg-rose-600 text-white font-black text-[9px] uppercase tracking-widest px-3 py-1 rounded-full shadow-sm font-mono">
+                      ENDAST {product.stock} KVAR
+                    </div>
+                  ) : (
+                    <div className="absolute top-4 left-4 bg-[#0b231a] text-emerald-300 font-extrabold text-[9px] uppercase tracking-widest px-3 py-1 rounded-full shadow-sm font-mono flex items-center gap-1">
+                      <Check className="h-3 w-3" /> FÄLTTESTAD
+                    </div>
+                  )}
+                </Link>
+
+                <div className="p-6 flex flex-col flex-grow">
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-[9px] font-black text-emerald-800 uppercase tracking-widest bg-emerald-50 px-2.5 py-1 rounded font-mono">
+                      {product.category}
+                    </span>
+                    <div className="flex items-center gap-1 text-amber-500">
+                      <Star className="h-3 w-3 fill-current" />
+                      <span className="text-[10px] font-extrabold text-slate-800 font-mono">4.9</span>
+                    </div>
+                  </div>
+
+                  <Link to={`/product/${product.id}`}>
+                    <h3 className="text-base font-extrabold text-slate-900 group-hover:text-emerald-800 transition-colors mb-1.5 uppercase tracking-tight line-clamp-1">{product.name}</h3>
+                  </Link>
+                  <p className="text-slate-500 text-xs line-clamp-2 mb-5 h-10 leading-relaxed font-medium">{product.description}</p>
+                  
+                  <div className="mt-auto flex items-center justify-between pt-4 border-t border-slate-100 bg-white">
+                    <div>
+                      <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider font-mono">Pris SEK</span>
+                      <span className="text-base font-black text-slate-950 font-mono">{product.price} SEK_</span>
+                    </div>
+                    <button
+                      disabled={product.stock <= 0}
+                      onClick={() => addToCart(product)}
+                      className="bg-[#0b231a] text-white p-3 rounded-2xl hover:bg-amber-500 hover:text-slate-950 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed transition-all transform hover:scale-105 shadow-md cursor-pointer"
+                    >
+                      <ShoppingCart className="h-4.5 w-4.5" />
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

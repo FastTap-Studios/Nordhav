@@ -1,0 +1,25 @@
+# Render Web Service – full Node/Express (Stripe, Gemini API, SPA)
+# Koppla GitHub-repo i Render Dashboard → New → Blueprint
+services:
+  - type: web
+    name: nordhav
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false
+      - key: VITE_STRIPE_PUBLIC_KEY
+        sync: false
+      - key: APP_URL
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false

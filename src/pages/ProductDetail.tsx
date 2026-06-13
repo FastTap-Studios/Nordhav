@@ -1,0 +1,528 @@
+import React, { useState, useEffect } from "react";
+import { useParams, Link } from "react-router-dom";
+import { Product } from "../types";
+import { useCart } from "../hooks/useCart";
+import { dbService } from "../services/db";
+import { motion } from "motion/react";
+import { 
+  ShoppingCart, Shield, Truck, RotateCcw, ChevronRight, Star, Heart, BookmarkCheck, ArrowRight,
+  Weight, Ruler, Waves, Palette, Anchor, Zap, Settings, Droplet, Wind, Box, Minus, Plus, Check
+} from "lucide-react";
+
+interface ProductSpec {
+  label: string;
+  value: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+function getProductSpecs(product: Product): {
+  categoryLabel: string;
+  sku: string;
+  discountMessage?: { originalPrice: number; percentage: number };
+  specs: ProductSpec[];
+  targetSpecies: string[];
+} {
+  // Generate SKU
+  const categoryCode = product.category.slice(0, 3).toUpperCase();
+  const indexCode = product.id ? product.id.replace("prod-", "00") : "001";
+  const sku = `Art.nr: NH-${categoryCode}-${indexCode}`;
+
+  // Premium mock discounts for existing core products
+  let discountMessage: { originalPrice: number; percentage: number } | undefined = undefined;
+  if (product.id === "prod-1") {
+    discountMessage = { originalPrice: 299, percentage: 17 };
+  } else if (product.id === "prod-2") {
+    discountMessage = { originalPrice: 199, percentage: 25 };
+  } else if (product.id === "prod-5") {
+    discountMessage = { originalPrice: 3899, percentage: 15 };
+  } else if (product.id === "prod-8") {
+    discountMessage = { originalPrice: 999, percentage: 20 };
+  }
+
+  let categoryLabel = "PREMIUM REDSKAP";
+  let specs: ProductSpec[] = [];
+  let targetSpecies: string[] = ["Gädda", "Abborre"]; // Default target species
+
+  const category = product.category;
+
+  if (category === "Beten") {
+    categoryLabel = product.id === "prod-1" ? "YTVATTEN  /  JERKBAIT" : "KUSTEN  /  SPINNARE";
+    targetSpecies = product.id === "prod-1" ? ["Gädda", "Abborre", "Gös"] : ["Havsöring", "Regnbåge"];
+    specs = [
+      { label: "VIKT", value: product.id === "prod-1" ? "28g" : "18g", icon: Weight },
+      { label: "LÄNGD", value: product.id === "prod-1" ? "110mm" : "85mm", icon: Ruler },
+      { label: "DJUP", value: product.id === "prod-1" ? "0-2m" : "0.5-1.5m", icon: Waves },
+      { label: "FÄRG", value: product.id === "prod-1" ? "Guldskimmer" : "Firetiger", icon: Palette }
+    ];
+  } else if (category === "Spön") {
+    categoryLabel = "KOLFIBERSPÖ  /  PREDATOR";
+    targetSpecies = ["Gädda", "Abborre", "Gös"];
+    specs = [
+      { label: "VIKT", value: "115g", icon: Weight },
+      { label: "LÄNGD", value: "8 fot (240cm)", icon: Ruler },
+      { label: "KASTVIKT", value: "10-30g", icon: Anchor },
+      { label: "AKTION", value: "Snabb / Medium-Snabb", icon: Shield }
+    ];
+  } else if (category === "Rullar") {
+    categoryLabel = "HASPELRULLE  /  PRECISION";
+    targetSpecies = ["Abborre", "Öring", "Lax"];
+    specs = [
+      { label: "VIKT", value: "235g", icon: Weight },
+      { label: "UTVÄXLING", value: "6.2:1", icon: Zap },
+      { label: "BROMS", value: "7.0 kg kolfiber", icon: Shield },
+      { label: "KULLAGER", value: "9 + 1 Rostfria", icon: Settings }
+    ];
+  } else if (category === "Fiskekläder") {
+    categoryLabel = "ALLWEATHER  /  OUTDOOR";
+    targetSpecies = ["Kustfiske", "Båtfiske", "Flugfiske"];
+    specs = [
+      { label: "VIKT", value: "680g", icon: Weight },
+      { label: "VATTENPELARE", value: "20 000 mm", icon: Droplet },
+      { label: "ANDNING", value: "15 000 g/m²", icon: Wind },
+      { label: "FÄRG", value: "Nordisk Skogsgrön", icon: Palette }
+    ];
+  } else if (category === "Tillbehör") {
+    categoryLabel = "FÖRVARING  /  ACCESSORIES";
+    targetSpecies = ["Organisering", "Säkerhet", "Catch & Release"];
+    specs = [
+      { label: "VIKT", value: product.id === "prod-7" ? "350g" : "280g", icon: Weight },
+      { label: "STORLEK", value: product.id === "prod-7" ? "32x22x5 cm" : "55cm ram", icon: Ruler },
+      { label: "MATERIAL", value: product.id === "prod-7" ? "Modulär Polymer" : "Gummerat Nät", icon: Box },
+      { label: "FÄRG", value: product.id === "prod-7" ? "Transparent Grå" : "Matt Svart", icon: Palette }
+    ];
+  } else {
+    categoryLabel = `${category.toUpperCase()}  /  NORDHAV`;
+    specs = [
+      { label: "KATEGORI", value: category, icon: Box },
+      { label: "SKICK", value: "I Lager", icon: Check },
+      { label: "RETUR", value: "30 dagar", icon: RotateCcw },
+      { label: "GARANTI", value: "2 år", icon: Shield }
+    ];
+  }
+
+  return { categoryLabel, sku, discountMessage, specs, targetSpecies };
+}
+
+export default function ProductDetail() {
+  const { id } = useParams();
+  const [product, setProduct] = useState<Product | null>(null);
+  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { cart, addToCart, updateQuantity } = useCart();
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [qty, setQty] = useState(1);
+  const [isAdded, setIsAdded] = useState(false);
+
+  const [zoomPos, setZoomPos] = useState({ x: 50, y: 50 });
+  const [isZoomed, setIsZoomed] = useState(false);
+
+  // Reset selected image index when route changes
+  useEffect(() => {
+    setSelectedImageIndex(0);
+  }, [id]);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - left) / width) * 100;
+    const y = ((e.clientY - top) / height) * 100;
+    setZoomPos({ x, y });
+  };
+
+  useEffect(() => {
+    async function fetchProduct() {
+      if (!id) return;
+      try {
+        setLoading(true);
+        const prod = await dbService.getProduct(id);
+        setProduct(prod);
+
+        if (prod) {
+          const allProds = await dbService.getProducts();
+          // Filter products in the same category, excluding the current product
+          const filtered = allProds
+            .filter((p) => p.category === prod.category && p.id !== prod.id)
+            .slice(0, 4);
+          
+          if (filtered.length < 4) {
+            const backfill = allProds
+              .filter((p) => p.id !== prod.id && p.category !== prod.category)
+              .slice(0, 4 - filtered.length);
+            setRelatedProducts([...filtered, ...backfill]);
+          } else {
+            setRelatedProducts(filtered);
+          }
+        }
+        window.scrollTo({ top: 0, behavior: "instant" as any });
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchProduct();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-[#fafbfc] text-emerald-900 font-extrabold uppercase tracking-widest animate-pulse text-xs">
+        Hämtar produktdata från lagret...
+      </div>
+    );
+  }
+
+  if (!product) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center bg-[#fafbfc] gap-6">
+        <h2 className="text-3xl font-extrabold text-slate-900 tracking-tighter uppercase">Artikeln kunde inte hittas</h2>
+        <p className="text-slate-500 font-medium">Denna produkt är antingen tillfälligt borttagen eller slutsåld.</p>
+        <Link to="/shop" className="bg-[#0b231a] text-white px-10 py-4.5 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-emerald-800 transition-all shadow-md">
+          Återgå till sortimentet
+        </Link>
+      </div>
+    );
+  }
+
+  const images = product.imageUrls && product.imageUrls.length > 0
+    ? product.imageUrls
+    : [product.imageUrl];
+  const currentImage = images[selectedImageIndex] || product.imageUrl;
+
+  const { categoryLabel, sku, discountMessage, specs, targetSpecies } = getProductSpecs(product);
+
+  const handleAddToCart = () => {
+    const existingInCart = cart.find((item) => item.id === product.id);
+    if (existingInCart) {
+      updateQuantity(product.id, existingInCart.quantity + qty);
+    } else {
+      addToCart(product);
+      if (qty > 1) {
+        updateQuantity(product.id, qty);
+      }
+    }
+    setIsAdded(true);
+    setTimeout(() => {
+      setIsAdded(false);
+    }, 2000);
+  };
+
+  return (
+    <div className="bg-[#fafbfc] min-h-screen py-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        {/* Elegant Breadcrumbs */}
+        <nav className="flex flex-wrap items-center space-x-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-12">
+          <Link to="/" className="hover:text-emerald-800 transition-colors">Hem</Link>
+          <ChevronRight className="h-3 w-3 text-slate-300" />
+          <Link to="/shop" className="hover:text-emerald-800 transition-colors">Sortiment</Link>
+          <ChevronRight className="h-3 w-3 text-slate-300" />
+          <span className="text-slate-400 font-semibold">{product.category}</span>
+          <ChevronRight className="h-3 w-3 text-slate-300" />
+          <span className="text-slate-900 truncate max-w-[200px]">{product.name}</span>
+        </nav>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
+          
+          {/* Left: Product Images with sleek zoom effect placeholder */}
+          <div className="lg:col-span-7">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5 }}
+              className="aspect-square bg-white rounded-[2.5rem] overflow-hidden border border-slate-200/60 shadow-md relative cursor-zoom-in"
+              onMouseEnter={() => setIsZoomed(true)}
+              onMouseLeave={() => setIsZoomed(false)}
+              onMouseMove={handleMouseMove}
+            >
+              <img 
+                src={currentImage} 
+                alt={product.name} 
+                className="h-full w-full object-cover select-none pointer-events-none transition-transform duration-100 ease-out" 
+                style={{
+                  transformOrigin: `${zoomPos.x}% ${zoomPos.y}%`,
+                  transform: isZoomed ? "scale(2.2)" : "scale(1)"
+                }}
+              />
+              
+              {/* Premium Floating overlay indicators */}
+              <div className="absolute bottom-6 left-6 px-4 py-2.5 bg-[#0b231a]/90 backdrop-blur-sm rounded-xl border border-emerald-800/20 text-white flex items-center space-x-2">
+                <BookmarkCheck className="h-4 w-4 text-amber-400" />
+                <span className="text-[10px] font-bold uppercase tracking-widest font-mono">100% GARANTERAD MATCH</span>
+              </div>
+
+              <button
+                onClick={() => setIsFavorite(!isFavorite)}
+                className="absolute top-6 right-6 p-3 rounded-full bg-white/95 border border-slate-100 shadow-md text-slate-600 hover:text-red-500 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+              >
+                <Heart className={`h-5 w-5 ${isFavorite ? "fill-red-500 text-red-500" : ""}`} />
+              </button>
+            </motion.div>
+
+            {/* Premium Thumbnail Selector for Multiple Images */}
+            {images.length > 1 && (
+              <div className="flex flex-wrap gap-4 mt-6 justify-center lg:justify-start">
+                {images.map((imgUrl, idx) => (
+                  <button
+                    key={`${imgUrl}-${idx}`}
+                    onClick={() => setSelectedImageIndex(idx)}
+                    className={`relative w-20 h-20 rounded-2xl overflow-hidden border bg-white transition-all duration-300 transform hover:scale-105 cursor-pointer ${
+                      selectedImageIndex === idx
+                        ? "ring-2 ring-emerald-800 ring-offset-2 border-transparent scale-102 shadow-md"
+                        : "border-slate-200 hover:border-slate-400 shadow-sm"
+                    }`}
+                  >
+                    <img
+                      src={imgUrl}
+                      alt={`${product.name} bild ${idx + 1}`}
+                      className="w-full h-full object-cover select-none pointer-events-none"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Right: Detailed Product Info Column */}
+          <div className="lg:col-span-5 flex flex-col justify-start pt-4 lg:pt-0">
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="space-y-6"
+            >
+              
+              {/* Category, Rating & Title Section */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#3b82f6] font-mono">
+                    {categoryLabel}
+                  </span>
+                  <div className="flex items-center gap-0.5 text-amber-500">
+                    <Star className="h-3.5 w-3.5 fill-current" />
+                    <Star className="h-3.5 w-3.5 fill-current" />
+                    <Star className="h-3.5 w-3.5 fill-current" />
+                    <Star className="h-3.5 w-3.5 fill-current" />
+                    <Star className="h-3.5 w-3.5 fill-current" />
+                    <span className="text-[10px] font-extrabold text-slate-700 ml-1 font-mono">4.9 / 5.0</span>
+                  </div>
+                </div>
+
+                <h1 className="text-3xl sm:text-4xl font-extrabold text-[#071a13] tracking-tight uppercase leading-tight mb-1">
+                  {product.name}
+                </h1>
+                
+                <p className="text-[11px] font-mono text-slate-400 font-semibold opacity-85">
+                  {sku}
+                </p>
+              </div>
+
+              {/* Price Row with potential Discount indicators */}
+              <div className="flex items-baseline space-x-3.5 pt-1">
+                {discountMessage ? (
+                  <>
+                    <span className="text-3xl font-black text-[#071a13] font-mono tracking-tight">
+                      {product.price} kr
+                    </span>
+                    <span className="text-sm font-bold text-slate-400 line-through font-mono">
+                      {discountMessage.originalPrice} kr
+                    </span>
+                    <span className="bg-rose-50 text-rose-500 text-[10px] font-black font-mono px-2 py-0.5 rounded border border-rose-100 uppercase tracking-wider">
+                      -{discountMessage.percentage}%
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-3xl font-black text-[#071a13] font-mono tracking-tight">
+                    {product.price} kr
+                  </span>
+                )}
+              </div>
+
+              {/* Comfortable Description paragraph */}
+              <p className="text-slate-600 leading-relaxed text-sm font-medium">
+                {product.description}
+              </p>
+
+              {/* Premium Specs Grid - exact detail match from image */}
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                {specs.map((s, index) => {
+                  const IconComp = s.icon;
+                  return (
+                    <div 
+                      key={index} 
+                      className="bg-white p-3.5 rounded-2xl border border-slate-200/50 hover:border-emerald-800/10 transition-colors flex items-center space-x-3 shadow-xs"
+                    >
+                      <div className="p-2 bg-slate-50 text-[#0e2c22] rounded-xl border border-slate-100 flex items-center justify-center">
+                        <IconComp className="h-4 w-4 stroke-[2]" />
+                      </div>
+                      <div>
+                        <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-widest font-mono mb-0.5">
+                          {s.label}
+                        </span>
+                        <span className="block text-xs font-black text-[#071a13] font-sans tracking-tight">
+                          {s.value}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Target species - "MÅLART" */}
+              <div className="space-y-2 pt-2">
+                <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest font-mono">
+                  MÅLART
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {targetSpecies.map((target) => (
+                    <span
+                      key={target}
+                      className="bg-slate-100 text-slate-600 text-[10px] font-extrabold tracking-normal px-3.5 py-1.5 rounded-lg border border-slate-200/40 hover:bg-slate-200/60 transition-colors cursor-default"
+                    >
+                      {target}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Add to Cart Controls with Qty Selector and exact horizontal outline design from image */}
+              <div className="pt-4 border-t border-slate-100">
+                <div className="flex items-center space-x-3">
+                  
+                  {/* Clean Quantity Counter box */}
+                  <div className="flex items-center bg-white border border-slate-200 shadow-sm rounded-xl p-1 h-14">
+                    <button
+                      type="button"
+                      disabled={product.stock <= 0}
+                      onClick={() => setQty(Math.max(1, qty - 1))}
+                      className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-emerald-800 disabled:text-slate-200 transition-colors font-bold rounded-lg active:scale-90 hover:bg-slate-50 cursor-pointer"
+                    >
+                      <Minus className="h-3.5 w-3.5" />
+                    </button>
+                    <span className="w-8 text-center font-mono font-black text-xs text-[#071a13] select-none">
+                      {qty}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={product.stock <= 0}
+                      onClick={() => setQty(qty + 1)}
+                      className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-emerald-800 disabled:text-slate-200 transition-colors font-bold rounded-lg active:scale-90 hover:bg-slate-50 cursor-pointer"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Add to varukorg action */}
+                  <button
+                    disabled={product.stock <= 0}
+                    onClick={handleAddToCart}
+                    className={`flex-grow h-14 rounded-xl flex items-center justify-center space-x-2 transition-all shadow-md active:scale-98 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed cursor-pointer ${
+                      isAdded 
+                        ? "bg-emerald-800 text-white font-black"
+                        : "bg-[#0b2942] hover:bg-[#071d30] text-[#f1f5f9] font-black uppercase text-xs tracking-wider"
+                    }`}
+                  >
+                    <ShoppingCart className="h-4 w-4 mr-0.5 stroke-[2.5]" />
+                    <span>{isAdded ? "LAGD I VARUKORGEN! ✓" : "LÄGG I VARUKORG"}</span>
+                  </button>
+                </div>
+
+                {/* Stock Indicator checkmark below - exact detail match */}
+                <div className="flex items-center space-x-1.5 text-[10px] font-mono text-emerald-800 font-semibold opacity-90 mt-4 select-none">
+                  <Check className="h-3.5 w-3.5 stroke-[3]" />
+                  <span>
+                    {product.stock > 0 
+                      ? `I lager` 
+                      : "Slutsåld (kontakta kundtjänst för info)"
+                    }
+                  </span>
+                </div>
+              </div>
+
+              {/* Extra Security/Usp details */}
+              <div className="grid grid-cols-3 gap-3 pt-3 border-t border-slate-100">
+                <div className="flex items-center space-x-2 text-slate-400">
+                  <Truck className="h-3.5 w-3.5 text-slate-300" />
+                  <span className="text-[9px] font-bold font-mono tracking-wide">FRAKT 24H</span>
+                </div>
+                <div className="flex items-center space-x-2 text-slate-400">
+                  <RotateCcw className="h-3.5 w-3.5 text-slate-300" />
+                  <span className="text-[9px] font-bold font-mono tracking-wide">30 DAGARS BYTESRÄTT</span>
+                </div>
+                <div className="flex items-center space-x-2 text-slate-400">
+                  <Shield className="h-3.5 w-3.5 text-slate-300" />
+                  <span className="text-[9px] font-bold font-mono tracking-wide">SÄKER BETALNING</span>
+                </div>
+              </div>
+
+            </motion.div>
+          </div>
+
+        </div>
+
+        {/* Related Products Section */}
+        {relatedProducts.length > 0 && (
+          <div className="mt-24 pt-16 border-t border-slate-200/60 animate-fade-in">
+            <div className="text-center md:text-left md:flex justify-between items-end mb-10">
+              <div className="space-y-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#0e2c22] font-mono bg-emerald-50 px-3.5 py-1.5 rounded-full border border-emerald-100 font-mono">Utvalda tips</span>
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-[#0e2c22] tracking-tight uppercase mt-2">RELATERADE PRODUKTER</h2>
+              </div>
+              <Link
+                to="/shop"
+                className="inline-flex items-center space-x-1.5 text-xs font-black uppercase tracking-widest text-emerald-800 hover:text-amber-500 transition-colors mt-4 md:mt-0"
+              >
+                <span>Hela sortimentet</span>
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+              {relatedProducts.map((p) => (
+                <motion.div
+                  key={p.id}
+                  whileHover={{ y: -6 }}
+                  className="bg-white rounded-[2rem] border border-slate-200/60 shadow-sm overflow-hidden flex flex-col h-full group"
+                >
+                  <div className="relative aspect-square overflow-hidden bg-slate-50">
+                    <img
+                      src={p.imageUrl}
+                      alt={p.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 hover:scale-105 duration-700"
+                    />
+                    <div className="absolute top-4 left-4">
+                      <span className="text-[10px] font-black uppercase tracking-wider bg-white/95 text-[#071a13] px-3 py-1 rounded-full border border-slate-100 shadow-sm font-mono">
+                        {p.category}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="p-6 flex flex-col flex-grow justify-between space-y-4">
+                    <div>
+                      <h3 className="font-extrabold text-[#071a13] text-sm uppercase tracking-tight line-clamp-1 group-hover:text-amber-500 transition-colors">
+                        <Link to={`/product/${p.id}`}>{p.name}</Link>
+                      </h3>
+                      <p className="text-slate-500 text-xs mt-1.5 font-medium line-clamp-2 leading-relaxed">
+                        {p.description}
+                      </p>
+                    </div>
+                    
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                      <span className="font-mono font-black text-sm text-slate-900">{p.price} SEK_</span>
+                      <button
+                        onClick={() => addToCart(p)}
+                        className="p-3 bg-[#0b231a] text-amber-400 group-hover:bg-amber-500 group-hover:text-slate-950 rounded-xl transition-all shadow-md cursor-pointer"
+                        title="Lägg i varukorg"
+                      >
+                        <ShoppingCart className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
