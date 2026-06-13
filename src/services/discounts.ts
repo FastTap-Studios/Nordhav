@@ -62,6 +62,38 @@ function writeLocal(items: DiscountCode[]) {
 }
 
 export const discountService = {
+  async validateCode(
+    code: string,
+    subtotal: number
+  ): Promise<{ discount: DiscountCode | null; error?: string }> {
+    const normalized = code.trim().toUpperCase();
+    if (!normalized) return { discount: null, error: "Ange en rabattkod." };
+
+    const all = await discountService.getAll();
+    const match = all.find((d) => d.code.toUpperCase() === normalized);
+
+    if (!match || !match.isActive) {
+      return { discount: null, error: "Ogiltig rabattkod." };
+    }
+    if (match.maxUses > 0 && match.usedCount >= match.maxUses) {
+      return { discount: null, error: "Rabattkoden har nått max antal användningar." };
+    }
+    if (subtotal < match.minOrderAmount) {
+      return {
+        discount: null,
+        error: `Minsta orderbelopp är ${match.minOrderAmount} kr för denna kod.`,
+      };
+    }
+    if (match.validFrom && new Date(match.validFrom) > new Date()) {
+      return { discount: null, error: "Rabattkoden är inte giltig än." };
+    }
+    if (match.validUntil && new Date(match.validUntil) < new Date()) {
+      return { discount: null, error: "Rabattkoden har gått ut." };
+    }
+
+    return { discount: match };
+  },
+
   async getAll(): Promise<DiscountCode[]> {
     const sb = getSupabaseSafe();
     if (!sb) return readLocal();
