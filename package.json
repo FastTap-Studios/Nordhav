@@ -13,6 +13,7 @@
     "start": "node dist/server.cjs",
     "deploy:cloudflare": "npm run build:pages && npx wrangler pages deploy dist --project-name=nordhav --commit-dirty=true",
     "setup:cloudflare": "node scripts/setup-cloudflare-env.mjs",
+    "link:cloudflare-github": "node scripts/link-cloudflare-github.mjs",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
     "supabase:check": "node scripts/supabase-check.mjs"
