@@ -6,12 +6,18 @@ interface AdminLoginProps {
   supabaseEnabled: boolean;
   onLogin: (email: string, password?: string) => Promise<{ error?: string }>;
   onSignUp: (email: string, password: string) => Promise<{ error?: string }>;
+  onRequestPasswordReset: (email: string) => Promise<{ error?: string }>;
 }
 
-export default function AdminLogin({ supabaseEnabled, onLogin, onSignUp }: AdminLoginProps) {
+export default function AdminLogin({
+  supabaseEnabled,
+  onLogin,
+  onSignUp,
+  onRequestPasswordReset,
+}: AdminLoginProps) {
   const [email, setEmail] = useState("chia.jamal93@gmail.com");
   const [password, setPassword] = useState("");
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [mode, setMode] = useState<"login" | "signup" | "forgot">("login");
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
@@ -22,6 +28,15 @@ export default function AdminLogin({ supabaseEnabled, onLogin, onSignUp }: Admin
     setLoading(true);
     try {
       if (supabaseEnabled) {
+        if (mode === "forgot") {
+          const result = await onRequestPasswordReset(email);
+          if (result.error) {
+            setError(result.error);
+          } else {
+            setInfo("Om kontot finns skickas en återställningslänk till din e-post inom några minuter.");
+          }
+          return;
+        }
         if (password.length < 6) {
           setError("Lösenord måste vara minst 6 tecken.");
           return;
@@ -52,7 +67,9 @@ export default function AdminLogin({ supabaseEnabled, onLogin, onSignUp }: Admin
 
         <h1 className="text-2xl font-display font-bold mb-1">Administration</h1>
         <p className="text-sm text-muted-foreground mb-2">
-          Logga in för att hantera produkter, ordrar och butiksinställningar.
+          {mode === "forgot"
+            ? "Ange din e-post så skickar vi en länk för att återställa lösenordet."
+            : "Logga in för att hantera produkter, ordrar och butiksinställningar."}
         </p>
         {supabaseEnabled && (
           <p className="text-[10px] font-mono text-primary mb-6 uppercase tracking-wider">
@@ -73,7 +90,7 @@ export default function AdminLogin({ supabaseEnabled, onLogin, onSignUp }: Admin
             />
           </div>
 
-          {supabaseEnabled && (
+          {supabaseEnabled && mode !== "forgot" && (
             <div>
               <label className="block text-xs font-mono text-muted-foreground uppercase tracking-wider mb-2">
                 Lösenord
@@ -88,6 +105,20 @@ export default function AdminLogin({ supabaseEnabled, onLogin, onSignUp }: Admin
             </div>
           )}
 
+          {supabaseEnabled && mode === "login" && (
+            <button
+              type="button"
+              onClick={() => {
+                setMode("forgot");
+                setError("");
+                setInfo("");
+              }}
+              className="text-xs font-mono text-muted-foreground hover:text-primary uppercase tracking-wider"
+            >
+              Glömt lösenord?
+            </button>
+          )}
+
           {error && <p className="text-sm text-destructive">{error}</p>}
           {info && <p className="text-sm text-emerald-600">{info}</p>}
 
@@ -98,21 +129,41 @@ export default function AdminLogin({ supabaseEnabled, onLogin, onSignUp }: Admin
             className="w-full inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground py-3 rounded-lg font-mono text-xs uppercase tracking-wider hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-            {supabaseEnabled ? (mode === "login" ? "Logga in" : "Skapa konto") : "Logga in"}
+            {supabaseEnabled
+              ? mode === "login"
+                ? "Logga in"
+                : mode === "signup"
+                  ? "Skapa konto"
+                  : "Skicka återställningslänk"
+              : "Logga in"}
           </button>
 
           {supabaseEnabled ? (
-            <button
-              type="button"
-              onClick={() => {
-                setMode(mode === "login" ? "signup" : "login");
-                setError("");
-                setInfo("");
-              }}
-              className="w-full text-xs font-mono text-muted-foreground hover:text-primary uppercase tracking-wider"
-            >
-              {mode === "login" ? "Skapa nytt admin-konto →" : "← Tillbaka till inloggning"}
-            </button>
+            mode === "forgot" ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("login");
+                  setError("");
+                  setInfo("");
+                }}
+                className="w-full text-xs font-mono text-muted-foreground hover:text-primary uppercase tracking-wider"
+              >
+                ← Tillbaka till inloggning
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setMode(mode === "login" ? "signup" : "login");
+                  setError("");
+                  setInfo("");
+                }}
+                className="w-full text-xs font-mono text-muted-foreground hover:text-primary uppercase tracking-wider"
+              >
+                {mode === "login" ? "Skapa nytt admin-konto →" : "← Tillbaka till inloggning"}
+              </button>
+            )
           ) : (
             <button
               type="button"

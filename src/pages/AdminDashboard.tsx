@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
-import { Routes, Route, Navigate, Link } from "react-router-dom";
+import { Routes, Route, Navigate, Link, useLocation } from "react-router-dom";
 import { Product, Order } from "../types";
 import { useAuth } from "../hooks/useAuth";
 import { dbService } from "../services/db";
 import AdminLayout from "../components/admin/AdminLayout";
 import AdminLogin from "./admin/AdminLogin";
+import AdminResetPassword from "./admin/AdminResetPassword";
 import DashboardView from "./admin/DashboardView";
 import ProductsView from "./admin/ProductsView";
 import OrdersView from "./admin/OrdersView";
@@ -17,7 +18,9 @@ import { ToastProvider } from "../components/admin/Toast";
 import { ShieldX } from "lucide-react";
 
 export default function AdminDashboard() {
-  const { user, isAdmin, loading: authLoading, login, signUp, logout, supabaseEnabled } = useAuth();
+  const { user, isAdmin, loading: authLoading, login, signUp, logout, supabaseEnabled, recoveryMode, requestPasswordReset, updatePassword } = useAuth();
+  const location = useLocation();
+  const isResetRoute = location.pathname.endsWith("/reset-password");
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -131,7 +134,7 @@ export default function AdminDashboard() {
     await fetchData();
   };
 
-  if (authLoading) {
+  if (authLoading && !isResetRoute && !recoveryMode) {
     return (
       <div className="admin-shell h-screen flex items-center justify-center text-muted-foreground font-mono text-xs uppercase tracking-widest animate-pulse">
         Verifierar behörigheter...
@@ -139,8 +142,24 @@ export default function AdminDashboard() {
     );
   }
 
+  if (recoveryMode || isResetRoute) {
+    return (
+      <AdminResetPassword
+        supabaseEnabled={supabaseEnabled}
+        onUpdatePassword={updatePassword}
+      />
+    );
+  }
+
   if (!user) {
-    return <AdminLogin supabaseEnabled={supabaseEnabled} onLogin={login} onSignUp={signUp} />;
+    return (
+      <AdminLogin
+        supabaseEnabled={supabaseEnabled}
+        onLogin={login}
+        onSignUp={signUp}
+        onRequestPasswordReset={requestPasswordReset}
+      />
+    );
   }
 
   if (!isAdmin) {

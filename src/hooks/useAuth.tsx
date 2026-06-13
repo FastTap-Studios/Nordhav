@@ -14,9 +14,12 @@ interface AuthContextType {
   user: AppUser | null;
   isAdmin: boolean;
   loading: boolean;
+  recoveryMode: boolean;
   supabaseEnabled: boolean;
   login: (email?: string, password?: string) => Promise<{ error?: string }>;
   signUp: (email: string, password: string) => Promise<{ error?: string }>;
+  requestPasswordReset: (email: string) => Promise<{ error?: string }>;
+  updatePassword: (password: string) => Promise<{ error?: string }>;
   logout: () => Promise<void>;
 }
 
@@ -60,6 +63,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return false;
   });
   const [loading, setLoading] = useState(isSupabaseConfigured);
+  const [recoveryMode, setRecoveryMode] = useState(() =>
+    typeof window !== "undefined" && window.location.hash.includes("type=recovery")
+  );
 
   useEffect(() => {
     const sb = getSupabaseSafe();
@@ -100,6 +106,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = sb.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setRecoveryMode(true);
+      }
       if (event === "INITIAL_SESSION") return;
       setTimeout(() => syncFromSession(session), 0);
     });
@@ -162,6 +171,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return {};
   };
 
+  const requestPasswordReset = async (email: string) => {
+    const sb = getSupabaseSafe();
+    if (!sb) return { error: "Supabase är inte konfigurerat." };
+
+    const trimmed = email.trim();
+    if (!trimmed) return { error: "Ange din e-postadress." };
+
+    const { error } = await sb.auth.resetPasswordForEmail(trimmed, {
+      redirectTo: `${window.location.origin}/admin/reset-password`,
+    });
+    if (error) return { error: error.message };
+    return {};
+  };
+
+  const updatePassword = async (password: string) => {
+    const sb = getSupabaseSafe();
+    if (!sb) return { error: "Supabase är inte konfigurerat." };
+
+    const { error } = await sb.auth.updateUser({ password });
+    if (error) return { error: error.message };
+
+    setRecoveryMode(false);
+    if (window.location.hash) {
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+    return {};
+  };
+
   const logout = async () => {
     const sb = getSupabaseSafe();
     if (sb) {
@@ -169,6 +206,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setUser(null);
     setIsAdmin(false);
+    setRecoveryMode(false);
     localStorage.removeItem("fishing_mock_user");
   };
 
@@ -178,9 +216,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         isAdmin,
         loading,
+        recoveryMode,
         supabaseEnabled: isSupabaseConfigured,
         login,
         signUp,
+        requestPasswordReset,
+        updatePassword,
         logout,
       }}
     >
