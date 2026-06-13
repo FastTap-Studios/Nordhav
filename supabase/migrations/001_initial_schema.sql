@@ -187,14 +187,14 @@ create policy "discounts admin delete" on public.discount_codes
 -- Seed products (only if empty)
 insert into public.products (name, description, price, image_url, image_urls, stock, category, is_active, is_featured)
 select * from (values
-  ('Nordhav Hydro-Glide Jerkbait', 'Ett tredelat, sjunkande jerkbait med naturtrogen gång.', 249, '/src/assets/images/nordhav_jerkbait_1781308554224.jpg', '["/src/assets/images/nordhav_jerkbait_1781308554224.jpg"]'::jsonb, 18, 'Beten', true, true),
-  ('Havsöring Special Inline-Spinnare', 'Specialdesignat skeddrag för havsöring längs kusten.', 149, '/src/assets/images/nordhav_spinner_1781308605971.jpg', '["/src/assets/images/nordhav_spinner_1781308605971.jpg"]'::jsonb, 25, 'Beten', true, false),
-  ('Pro Series Carbon Rod', 'Ultralätt kolfiberspö för maximal känsla och precision.', 1899, '/src/assets/images/nordhav_rod_1781308568767.jpg', '["/src/assets/images/nordhav_rod_1781308568767.jpg"]'::jsonb, 8, 'Spön', true, false),
-  ('Stealth Reel 3000', 'Mjuk silkeslen gång med patenterad kolfiber-hybridbroms.', 1450, '/src/assets/images/nordhav_reel_1781308580470.jpg', '["/src/assets/images/nordhav_reel_1781308580470.jpg"]'::jsonb, 12, 'Rullar', true, false),
-  ('Storm-Tech Skaljacka v2', 'Vattentät 3-lagers skaljacka med 20 000 mm vattenpelare.', 3299, '/src/assets/images/nordhav_jacket_1781308592116.jpg', '["/src/assets/images/nordhav_jacket_1781308592116.jpg"]'::jsonb, 10, 'Fiskekläder', true, false),
-  ('Nordhav Pro Coast Waders', 'Ventilerande andasvadare i absolut toppskikt.', 3899, '/src/assets/images/nordhav_waders_1781308619366.jpg', '["/src/assets/images/nordhav_waders_1781308619366.jpg"]'::jsonb, 6, 'Fiskekläder', true, false),
-  ('Nordhav Tactical Betesbox', 'Vattentät betesask i hårdplast med kraftiga snäpplås.', 349, '/src/assets/images/nordhav_tacklebox_1781308631491.jpg', '["/src/assets/images/nordhav_tacklebox_1781308631491.jpg"]'::jsonb, 15, 'Tillbehör', true, false),
-  ('Gentle Catch Flytnätshåv', 'Ultralätt flytande kolfiberhåv med skonsamt nät.', 799, '/src/assets/images/nordhav_net_1781308643420.jpg', '["/src/assets/images/nordhav_net_1781308643420.jpg"]'::jsonb, 8, 'Tillbehör', true, false)
+  ('Nordhav Hydro-Glide Jerkbait', 'Ett tredelat, sjunkande jerkbait med naturtrogen gång.', 249, '/images/nordhav_jerkbait_1781308554224.jpg', '["/images/nordhav_jerkbait_1781308554224.jpg"]'::jsonb, 18, 'Beten', true, true),
+  ('Havsöring Special Inline-Spinnare', 'Specialdesignat skeddrag för havsöring längs kusten.', 149, '/images/nordhav_spinner_1781308605971.jpg', '["/images/nordhav_spinner_1781308605971.jpg"]'::jsonb, 25, 'Beten', true, false),
+  ('Pro Series Carbon Rod', 'Ultralätt kolfiberspö för maximal känsla och precision.', 1899, '/images/nordhav_rod_1781308568767.jpg', '["/images/nordhav_rod_1781308568767.jpg"]'::jsonb, 8, 'Spön', true, false),
+  ('Stealth Reel 3000', 'Mjuk silkeslen gång med patenterad kolfiber-hybridbroms.', 1450, '/images/nordhav_reel_1781308580470.jpg', '["/images/nordhav_reel_1781308580470.jpg"]'::jsonb, 12, 'Rullar', true, false),
+  ('Storm-Tech Skaljacka v2', 'Vattentät 3-lagers skaljacka med 20 000 mm vattenpelare.', 3299, '/images/nordhav_jacket_1781308592116.jpg', '["/images/nordhav_jacket_1781308592116.jpg"]'::jsonb, 10, 'Fiskekläder', true, false),
+  ('Nordhav Pro Coast Waders', 'Ventilerande andasvadare i absolut toppskikt.', 3899, '/images/nordhav_waders_1781308619366.jpg', '["/images/nordhav_waders_1781308619366.jpg"]'::jsonb, 6, 'Fiskekläder', true, false),
+  ('Nordhav Tactical Betesbox', 'Vattentät betesask i hårdplast med kraftiga snäpplås.', 349, '/images/nordhav_tacklebox_1781308631491.jpg', '["/images/nordhav_tacklebox_1781308631491.jpg"]'::jsonb, 15, 'Tillbehör', true, false),
+  ('Gentle Catch Flytnätshåv', 'Ultralätt flytande kolfiberhåv med skonsamt nät.', 799, '/images/nordhav_net_1781308643420.jpg', '["/images/nordhav_net_1781308643420.jpg"]'::jsonb, 8, 'Tillbehör', true, false)
 ) as v(name, description, price, image_url, image_urls, stock, category, is_active, is_featured)
 where not exists (select 1 from public.products limit 1);
 

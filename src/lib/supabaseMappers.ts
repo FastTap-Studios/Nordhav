@@ -1,4 +1,5 @@
 import { DiscountCode, Order, Product, ReturnRequest } from "../types";
+import { resolveImageUrl, resolveImageUrls } from "./images";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -8,8 +9,8 @@ export function productFromRow(row: any): Product {
     name: row.name,
     description: row.description ?? "",
     price: Number(row.price),
-    imageUrl: row.image_url ?? "",
-    imageUrls: row.image_urls ?? [],
+    imageUrl: resolveImageUrl(row.image_url ?? ""),
+    imageUrls: resolveImageUrls(row.image_urls ?? []),
     stock: row.stock ?? 0,
     category: row.category ?? "Beten",
     createdAt: row.created_at,

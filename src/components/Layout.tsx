@@ -1,5 +1,6 @@
 import { ReactNode, useState, FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { LOGO_URL } from "../lib/images";
 import { 
   ShoppingCart, 
   User, 
@@ -101,7 +102,7 @@ export default function Layout({ children }: LayoutProps) {
               <Link to="/" className="flex items-center space-x-3 group">
                 <div className="h-12 w-12 rounded-2xl overflow-hidden border border-slate-200/80 group-hover:scale-105 hover:shadow-md transition-all duration-300 flex-shrink-0 relative bg-[#0b231a]">
                   <img
-                    src="/src/assets/images/nordhav_logo_1781307846821.jpg"
+                    src={LOGO_URL}
                     alt="NORDHAV Logo"
                     className="h-full w-full object-cover select-none"
                     referrerPolicy="no-referrer"
@@ -321,7 +322,7 @@ export default function Layout({ children }: LayoutProps) {
               <Link to="/" className="flex items-center space-x-2.5 group">
                 <div className="h-10 w-10 rounded-xl overflow-hidden border border-emerald-950 flex-shrink-0">
                   <img
-                    src="/src/assets/images/nordhav_logo_1781307846821.jpg"
+                    src={LOGO_URL}
                     alt="NORDHAV"
                     className="h-full w-full object-cover select-none"
                     referrerPolicy="no-referrer"
