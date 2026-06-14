@@ -37,6 +37,7 @@ import {
   applyVariantCacheToProduct,
 } from "../lib/productVariantCache";
 import { mergeProductMedia } from "../lib/supabaseMappers";
+import { getProductSaleInfo } from "../lib/pricing";
 import { resolveImageUrl } from "../lib/images";
 import { 
   ShoppingCart, Shield, Truck, RotateCcw, ChevronRight, Star, BookmarkCheck, ArrowRight,
@@ -61,17 +62,7 @@ function getProductSpecs(product: Product): {
   const indexCode = product.id ? product.id.replace("prod-", "00") : "001";
   const sku = `Art.nr: NH-${categoryCode}-${indexCode}`;
 
-  // Premium mock discounts for existing core products
-  let discountMessage: { originalPrice: number; percentage: number } | undefined = undefined;
-  if (product.id === "prod-1") {
-    discountMessage = { originalPrice: 299, percentage: 17 };
-  } else if (product.id === "prod-2") {
-    discountMessage = { originalPrice: 199, percentage: 25 };
-  } else if (product.id === "prod-5") {
-    discountMessage = { originalPrice: 3899, percentage: 15 };
-  } else if (product.id === "prod-8") {
-    discountMessage = { originalPrice: 999, percentage: 20 };
-  }
+  const discountMessage = getProductSaleInfo(product);
 
   let categoryLabel = "PREMIUM REDSKAP";
   let specs: ProductSpec[] = [];

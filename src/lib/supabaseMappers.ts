@@ -62,6 +62,7 @@ export function productListingFromRow(row: any): Product {
     isActive: row.is_active ?? true,
     isFeatured: row.is_featured ?? false,
     variantLabel: row.variant_label ?? undefined,
+    compareAtPrice: row.compare_at_price != null ? Number(row.compare_at_price) : undefined,
   };
 }
 
@@ -125,7 +126,10 @@ export function productToRow(product: Partial<Product>): Record<string, unknown>
   if (product.nameNo !== undefined) row.name_no = product.nameNo;
   if (product.descriptionEn !== undefined) row.description_en = product.descriptionEn;
   if (product.descriptionNo !== undefined) row.description_no = product.descriptionNo;
-  if (product.compareAtPrice !== undefined) row.compare_at_price = product.compareAtPrice;
+  if (product.compareAtPrice !== undefined) {
+    row.compare_at_price =
+      product.compareAtPrice != null && product.compareAtPrice > 0 ? product.compareAtPrice : null;
+  }
   if (product.sku !== undefined) row.sku = product.sku;
   if (product.weightGrams !== undefined) row.weight_grams = product.weightGrams;
   if (product.lengthMm !== undefined) row.length_mm = product.lengthMm;

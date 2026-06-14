@@ -8,6 +8,7 @@ import { ShoppingCart, Search, Star, Check } from "lucide-react";
 import FavoriteButton from "../components/FavoriteButton";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { resolveImageUrl } from "../lib/images";
+import { getProductSaleInfo, isProductOnSale } from "../lib/pricing";
 
 function ProductGridSkeleton({ count = 8 }: { count?: number }) {
   return (
@@ -39,6 +40,7 @@ export default function Shop() {
   const [searchTerm, setSearchTerm] = useState("");
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedCategory = searchParams.get("category") || "Alla";
+  const saleOnly = searchParams.get("sale") === "true";
   const navigate = useNavigate();
   const { addToCart } = useCart();
 
@@ -51,29 +53,31 @@ export default function Shop() {
   };
 
   const handleCategorySelect = (category: string) => {
+    const next = new URLSearchParams(searchParams);
     if (category === "Alla") {
-      searchParams.delete("category");
+      next.delete("category");
     } else {
-      searchParams.set("category", category);
+      next.set("category", category);
     }
-    setSearchParams(searchParams);
+    setSearchParams(next);
   };
 
-  // Synchronize state with URL search parameters
+  const filteredProducts = products.filter((p) => {
+    const matchesSearch =
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.description ?? "").toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory =
+      selectedCategory === "Alla" || p.category.toLowerCase() === selectedCategory.toLowerCase();
+    const matchesSale = !saleOnly || isProductOnSale(p);
+    return matchesSearch && matchesCategory && matchesSale;
+  });
+
   useEffect(() => {
     const urlSearch = searchParams.get("search");
     if (urlSearch) {
       setSearchTerm(urlSearch);
     }
   }, [searchParams]);
-
-  const filteredProducts = products.filter((p) => {
-    const matchesSearch =
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (p.description ?? "").toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === "Alla" || p.category.toLowerCase() === selectedCategory.toLowerCase();
-    return matchesSearch && matchesCategory;
-  });
 
   return (
     <div className="bg-[#fafbfc] min-h-screen py-16">
@@ -82,9 +86,23 @@ export default function Shop() {
         {/* Banner header resembling high-end outdoor store */}
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6 pb-6 border-b border-slate-200/60">
           <div className="space-y-2">
-            <span className="text-[10px] font-black uppercase tracking-widest text-[#0e2c22] font-mono bg-emerald-50 px-3.5 py-1.5 rounded-full border border-emerald-100">STORSÄLJARE & KVALITET</span>
-            <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight uppercase sm:text-5xl mt-2">VÅRT SORTIMENT</h1>
-            <p className="text-slate-500 font-medium text-sm">Högkänslig rörlighet, extrema färgval och handjusterad gång för nordiska rovfiskar.</p>
+            <span
+              className={`text-[10px] font-black uppercase tracking-widest font-mono px-3.5 py-1.5 rounded-full border ${
+                saleOnly
+                  ? "text-red-600 bg-red-50 border-red-100"
+                  : "text-[#0e2c22] bg-emerald-50 border-emerald-100"
+              }`}
+            >
+              {saleOnly ? "REA & ERBJUDANDEN" : "STORSÄLJARE & KVALITET"}
+            </span>
+            <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight uppercase sm:text-5xl mt-2">
+              {saleOnly ? "REA" : "VÅRT SORTIMENT"}
+            </h1>
+            <p className="text-slate-500 font-medium text-sm">
+              {saleOnly
+                ? "Alla produkter med sänkt pris — begränsad tid och begränsat lager."
+                : "Högkänslig rörlighet, extrema färgval och handjusterad gång för nordiska rovfiskar."}
+            </p>
           </div>
 
           <div className="relative group">
@@ -121,12 +139,17 @@ export default function Shop() {
           <ProductGridSkeleton />
         ) : filteredProducts.length === 0 ? (
           <div className="bg-white rounded-3xl p-16 text-center border border-slate-200/50 shadow-inner">
-            <p className="text-slate-500 font-extrabold text-sm uppercase font-mono">Inga produkter hittades i vårt lager.</p>
+            <p className="text-slate-500 font-extrabold text-sm uppercase font-mono">
+              {saleOnly ? "Inga reaprodukter matchar ditt filter just nu." : "Inga produkter hittades i vårt lager."}
+            </p>
             {products.length === 0 ? (
               <p className="text-xs text-slate-400 mt-2 italic">Tips: Logga in som admin och lägg till premiumartiklar!</p>
             ) : (
               <button 
-                onClick={() => { setSearchTerm(""); handleCategorySelect("Alla"); }}
+                onClick={() => {
+                  setSearchTerm("");
+                  navigate(saleOnly ? "/shop?sale=true" : "/shop");
+                }}
                 className="mt-6 inline-flex bg-[#0b231a] text-white px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-emerald-800 transition-all"
               >
                 ÅTERSTÄLL SÖKNING_
@@ -135,7 +158,9 @@ export default function Shop() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-            {filteredProducts.map((product) => (
+            {filteredProducts.map((product) => {
+              const sale = getProductSaleInfo(product);
+              return (
               <motion.div
                 key={product.id}
                 layout
@@ -153,6 +178,10 @@ export default function Shop() {
                   {product.stock <= 0 ? (
                     <div className="absolute inset-0 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center">
                       <span className="text-white font-extrabold text-xs tracking-widest uppercase py-2 px-5 border-2 border-amber-500 text-amber-400 rounded-full">TILLFÄLLIGT SLUT</span>
+                    </div>
+                  ) : sale ? (
+                    <div className="absolute top-4 left-4 bg-red-600 text-white font-black text-[9px] uppercase tracking-widest px-3 py-1 rounded-full shadow-sm font-mono">
+                      REA −{sale.percentage}%
                     </div>
                   ) : product.stock <= 4 ? (
                     <div className="absolute top-4 left-4 bg-rose-600 text-white font-black text-[9px] uppercase tracking-widest px-3 py-1 rounded-full shadow-sm font-mono">
@@ -184,7 +213,16 @@ export default function Shop() {
                   <div className="mt-auto flex items-center justify-between pt-4 border-t border-slate-100 bg-white">
                     <div>
                       <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider font-mono">Pris SEK</span>
-                      <span className="text-base font-black text-slate-950 font-mono">{product.price} SEK_</span>
+                      <div className="flex items-baseline gap-2 flex-wrap">
+                        <span className={`text-base font-black font-mono ${sale ? "text-red-600" : "text-slate-950"}`}>
+                          {product.price} SEK_
+                        </span>
+                        {sale && (
+                          <span className="text-xs font-bold text-slate-400 line-through font-mono">
+                            {sale.originalPrice} SEK_
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <button
                       disabled={getProductStock(product) <= 0}
@@ -197,7 +235,8 @@ export default function Shop() {
                   </div>
                 </div>
               </motion.div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

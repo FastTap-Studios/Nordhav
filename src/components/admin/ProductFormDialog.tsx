@@ -4,6 +4,7 @@ import { Sparkles, Loader2, Upload, X } from "lucide-react";
 import AdminDialog, { AdminInput, AdminSelect, AdminTextarea, FieldLabel } from "./AdminDialog";
 import ProductVariantEditor, { prepareProductVariants } from "./ProductVariantEditor";
 import { categoryUsesVariants, defaultVariantLabel, hasVariants } from "../../lib/variants";
+import { getSaleDiscountPercent, normalizeCompareAtPrice } from "../../lib/pricing";
 
 const CATEGORIES = ["Beten", "Spön", "Rullar", "Fiskekläder", "Tillbehör"];
 
@@ -126,7 +127,15 @@ export default function ProductFormDialog({ open, product, onClose, onSave }: Pr
     e.preventDefault();
     setSaving(true);
     try {
-      await onSave(prepareProductVariants(form), product?.id ?? null);
+      const prepared = prepareProductVariants(form);
+      const price = prepared.price ?? 0;
+      await onSave(
+        {
+          ...prepared,
+          compareAtPrice: normalizeCompareAtPrice(price, prepared.compareAtPrice),
+        },
+        product?.id ?? null
+      );
       onClose();
     } finally {
       setSaving(false);
@@ -134,6 +143,10 @@ export default function ProductFormDialog({ open, product, onClose, onSave }: Pr
   };
 
   const variantsEnabled = categoryUsesVariants(form.category || "Beten") || hasVariants(form);
+  const salePreview =
+    (form.price ?? 0) > 0 && (form.compareAtPrice ?? 0) > (form.price ?? 0)
+      ? getSaleDiscountPercent({ price: form.price ?? 0, compareAtPrice: form.compareAtPrice })
+      : 0;
 
   return (
     <AdminDialog
@@ -271,13 +284,23 @@ export default function ProductFormDialog({ open, product, onClose, onSave }: Pr
             />
           </div>
           <div>
-            <FieldLabel>Jämförpris</FieldLabel>
+            <FieldLabel>Ordinarie pris (rea)</FieldLabel>
             <AdminInput
               type="number"
               min={0}
-              value={form.compareAtPrice ?? 0}
-              onChange={(e) => set("compareAtPrice", parseFloat(e.target.value) || 0)}
+              step={1}
+              placeholder="T.ex. 299"
+              value={form.compareAtPrice && form.compareAtPrice > 0 ? form.compareAtPrice : ""}
+              onChange={(e) =>
+                set("compareAtPrice", e.target.value === "" ? undefined : parseFloat(e.target.value) || 0)
+              }
             />
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Sätt högre än försäljningspriset för att visa produkten som rea.
+              {salePreview > 0 && (
+                <span className="text-red-600 font-semibold ml-1">→ {salePreview}% rabatt</span>
+              )}
+            </p>
           </div>
           <div>
             <FieldLabel>Kategori</FieldLabel>

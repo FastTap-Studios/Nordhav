@@ -10,6 +10,7 @@ import FavoriteButton from "../components/FavoriteButton";
 import { Product } from "../types";
 import { useCart } from "../hooks/useCart";
 import { useProductListing } from "../hooks/useProductListing";
+import { getProductSaleInfo } from "../lib/pricing";
 import { getProductStock, productRequiresVariantPick } from "../lib/variants";
 import {
   resolveImageUrl,
@@ -198,6 +199,7 @@ export default function Home() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
               {products.map((p) => {
                 const rating = pseudoRating(p.id);
+                const sale = getProductSaleInfo(p);
                 return (
                   <div
                     key={p.id}
@@ -211,7 +213,11 @@ export default function Home() {
                         alt={p.name}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
-                      {p.stock <= 4 && p.stock > 0 ? (
+                      {p.stock <= 0 ? null : sale ? (
+                        <div className="absolute top-4 left-4 bg-red-600 text-white font-extrabold text-[9px] uppercase tracking-widest px-3 py-1 rounded-full shadow-sm font-mono">
+                          REA −{sale.percentage}%
+                        </div>
+                      ) : p.stock <= 4 && p.stock > 0 ? (
                         <div className="absolute top-4 left-4 bg-rose-600 text-white font-extrabold text-[9px] uppercase tracking-widest px-3 py-1 rounded-full shadow-sm font-mono">
                           Fåtal kvar: {p.stock} st
                         </div>
@@ -247,7 +253,16 @@ export default function Home() {
                           <span className="text-xs text-slate-400 font-bold block uppercase tracking-wider font-mono">
                             Pris SEK
                           </span>
-                          <span className="text-lg font-black text-slate-950 font-mono">{p.price} :-</span>
+                          <div className="flex items-baseline gap-2">
+                            <span className={`text-lg font-black font-mono ${sale ? "text-red-600" : "text-slate-950"}`}>
+                              {p.price} :-
+                            </span>
+                            {sale && (
+                              <span className="text-sm font-bold text-slate-400 line-through font-mono">
+                                {sale.originalPrice} :-
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <button
                           type="button"

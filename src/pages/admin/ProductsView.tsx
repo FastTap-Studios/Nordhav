@@ -12,6 +12,7 @@ import ProductCsvImport from "../../components/admin/ProductCsvImport";
 import ProductFormDialog from "../../components/admin/ProductFormDialog";
 import { ParsedCsvRow } from "../../components/admin/csvUtils";
 import { useToast } from "../../components/admin/Toast";
+import { getProductSaleInfo } from "../../lib/pricing";
 
 interface ProductsViewProps {
   products: Product[];
@@ -198,7 +199,21 @@ export default function ProductsView({
                     <td className="px-4 py-3 font-mono text-xs text-muted-foreground hidden md:table-cell">
                       {product.sku || `NH-${product.id.slice(-6).toUpperCase()}`}
                     </td>
-                    <td className="px-4 py-3 font-medium whitespace-nowrap">{product.price} kr</td>
+                    <td className="px-4 py-3 font-medium whitespace-nowrap">
+                      {(() => {
+                        const sale = getProductSaleInfo(product);
+                        if (!sale) return `${product.price} kr`;
+                        return (
+                          <span>
+                            <span className="text-red-600">{product.price} kr</span>
+                            <span className="text-xs text-muted-foreground line-through ml-1.5">
+                              {sale.originalPrice} kr
+                            </span>
+                            <span className="text-[10px] text-red-500 font-mono ml-1">−{sale.percentage}%</span>
+                          </span>
+                        );
+                      })()}
+                    </td>
                     <td className={`px-4 py-3 font-mono text-xs ${stockClass(product.stock)}`}>
                       {product.stock}
                     </td>

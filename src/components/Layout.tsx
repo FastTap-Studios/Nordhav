@@ -40,7 +40,8 @@ export default function Layout({ children }: LayoutProps) {
 
   useEffect(() => {
     closeCart();
-  }, [location.pathname, closeCart]);
+    setIsMenuOpen(false);
+  }, [location.pathname, location.search, closeCart]);
 
   const isAdminRoute = location.pathname.startsWith("/admin");
   if (isAdminRoute) {
@@ -120,10 +121,10 @@ export default function Layout({ children }: LayoutProps) {
               </div>
             </form>
 
-            <div className="flex items-center space-x-6 text-[#334e68]">
+            <div className="flex items-center space-x-3 sm:space-x-6 text-[#334e68]">
               <Link
                 to="/admin"
-                className="flex items-center space-x-1.5 hover:text-[#70aed3] transition-colors py-1 group"
+                className="hidden md:flex items-center space-x-1.5 hover:text-[#70aed3] transition-colors py-1 group"
               >
                 <User className="h-5 w-5 stroke-[1.8] text-[#486581] group-hover:text-[#70aed3] transition-colors" />
                 <span className="text-[11px] font-bold tracking-wider uppercase hidden lg:inline-block">Mitt konto</span>
@@ -131,7 +132,7 @@ export default function Layout({ children }: LayoutProps) {
 
               <Link
                 to="/favorites"
-                className="hidden sm:flex items-center space-x-1.5 hover:text-[#70aed3] transition-colors py-1 group"
+                className="flex items-center space-x-1.5 hover:text-[#70aed3] transition-colors py-1 group"
                 aria-label={totalFavorites > 0 ? `Favoriter (${totalFavorites})` : "Favoriter"}
               >
                 <div className="relative shrink-0">
@@ -226,12 +227,25 @@ export default function Layout({ children }: LayoutProps) {
       {/* Mobile menu */}
       <AnimatePresence>
         {isMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="md:hidden fixed top-[136px] inset-x-0 bg-white z-40 border-b border-slate-200 shadow-2xl p-6 space-y-4 max-h-[calc(100vh-136px)] overflow-y-auto"
-          >
+          <>
+            <motion.button
+              key="mobile-menu-backdrop"
+              type="button"
+              aria-label="Stäng meny"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="md:hidden fixed inset-0 top-[136px] z-30 bg-black/25 cursor-default"
+              onClick={() => setIsMenuOpen(false)}
+            />
+            <motion.div
+              key="mobile-menu-panel"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="md:hidden fixed top-[136px] inset-x-0 bg-white z-40 border-b border-slate-200 shadow-2xl p-6 space-y-4 max-h-[calc(100vh-136px)] overflow-y-auto"
+            >
             <form onSubmit={handleSearchSubmit} className="relative">
               <input
                 type="text"
@@ -276,19 +290,16 @@ export default function Layout({ children }: LayoutProps) {
                 Rea
               </Link>
               <Link
-                to="/favorites"
+                to="/admin"
                 onClick={() => setIsMenuOpen(false)}
-                className="px-3 py-2.5 text-sm font-bold text-slate-700 hover:text-[#70aed3] hover:bg-[#f0f4f8] rounded-xl transition-all flex items-center justify-between"
+                className="px-3 py-2.5 text-sm font-bold text-slate-700 hover:text-[#70aed3] hover:bg-[#f0f4f8] rounded-xl transition-all flex items-center gap-2"
               >
-                <span>Favoriter</span>
-                {totalFavorites > 0 && (
-                  <span className="bg-red-500 text-white text-[10px] font-black rounded-full h-5 min-w-5 px-1 flex items-center justify-center">
-                    {totalFavorites}
-                  </span>
-                )}
+                <User className="h-4 w-4 stroke-[2]" />
+                Mitt konto
               </Link>
             </div>
-          </motion.div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
 
