@@ -22,16 +22,22 @@ export default function FavoriteButton({
     toggleFavorite(product);
   };
 
+  const stopBubble = (e: React.SyntheticEvent) => {
+    e.stopPropagation();
+  };
+
   if (variant === "hero") {
     return (
       <button
         type="button"
         onClick={handleClick}
+        onPointerDown={stopBubble}
+        onTouchStart={stopBubble}
         aria-label={active ? "Ta bort från favoriter" : "Lägg till favorit"}
         aria-pressed={active}
         className={
           className ||
-          "absolute top-6 right-6 p-3 rounded-full bg-white/95 border border-slate-100 shadow-md text-slate-600 hover:text-red-500 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+          "absolute top-6 right-6 z-30 p-3 rounded-full bg-white/95 border border-slate-100 shadow-md text-slate-600 hover:text-red-500 hover:scale-105 active:scale-95 transition-all cursor-pointer touch-manipulation"
         }
       >
         <Heart className={`h-5 w-5 ${active ? "fill-red-500 text-red-500" : ""}`} />

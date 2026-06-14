@@ -158,6 +158,15 @@ export default function ProductDetail() {
 
   const [zoomPos, setZoomPos] = useState({ x: 50, y: 50 });
   const [isZoomed, setIsZoomed] = useState(false);
+  const [canHoverZoom, setCanHoverZoom] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const update = () => setCanHoverZoom(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
   // Scroll to top and reset gallery/variant UI when product route changes
   useEffect(() => {
@@ -169,6 +178,8 @@ export default function ProductDetail() {
     setSelectedSize(null);
     setColorTouched(false);
     setVariantError(false);
+    setIsZoomed(false);
+    setZoomPos({ x: 50, y: 50 });
   }, [id]);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -348,6 +359,11 @@ export default function ProductDetail() {
     setSelectedImageIndex(0);
   }, [product, selectedColor, selectedVariant?.id]);
 
+  useEffect(() => {
+    setIsZoomed(false);
+    setZoomPos({ x: 50, y: 50 });
+  }, [selectedImageIndex, selectedColor]);
+
   if (loading) {
     return (
       <div className="h-screen flex items-center justify-center bg-[#fafbfc] text-emerald-900 font-extrabold uppercase tracking-widest animate-pulse text-xs">
@@ -504,16 +520,19 @@ export default function ProductDetail() {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
           
-          {/* Left: Product Images with sleek zoom effect placeholder */}
+          {/* Left: Product Images with hover zoom (desktop only) */}
           <div className="lg:col-span-7">
+            <div className="relative">
             <motion.div
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5 }}
-              className="aspect-square bg-white rounded-[2.5rem] overflow-hidden border border-slate-200/60 shadow-md relative cursor-zoom-in"
-              onMouseEnter={() => setIsZoomed(true)}
-              onMouseLeave={() => setIsZoomed(false)}
-              onMouseMove={handleMouseMove}
+              className={`aspect-square bg-white rounded-[2.5rem] overflow-hidden border border-slate-200/60 shadow-md relative touch-manipulation ${
+                canHoverZoom ? "cursor-zoom-in" : "cursor-default"
+              }`}
+              onMouseEnter={canHoverZoom ? () => setIsZoomed(true) : undefined}
+              onMouseLeave={canHoverZoom ? () => setIsZoomed(false) : undefined}
+              onMouseMove={canHoverZoom ? handleMouseMove : undefined}
             >
               <img 
                 src={currentImage} 
@@ -523,18 +542,19 @@ export default function ProductDetail() {
                 className="h-full w-full object-cover select-none pointer-events-none transition-transform duration-100 ease-out" 
                 style={{
                   transformOrigin: `${zoomPos.x}% ${zoomPos.y}%`,
-                  transform: isZoomed ? "scale(2.2)" : "scale(1)"
+                  transform: canHoverZoom && isZoomed ? "scale(2.2)" : "scale(1)",
                 }}
               />
               
               {/* Premium Floating overlay indicators */}
-              <div className="absolute bottom-6 left-6 px-4 py-2.5 bg-[#0b231a]/90 backdrop-blur-sm rounded-xl border border-emerald-800/20 text-white flex items-center space-x-2">
+              <div className="absolute bottom-6 left-6 px-4 py-2.5 bg-[#0b231a]/90 backdrop-blur-sm rounded-xl border border-emerald-800/20 text-white flex items-center space-x-2 pointer-events-none">
                 <BookmarkCheck className="h-4 w-4 text-amber-400" />
                 <span className="text-[10px] font-bold uppercase tracking-widest font-mono">100% GARANTERAD MATCH</span>
               </div>
-
-              <FavoriteButton product={product} variant="hero" />
             </motion.div>
+
+            <FavoriteButton product={product} variant="hero" />
+            </div>
 
             {/* Premium Thumbnail Selector for Multiple Images */}
             {imagesLoading ? (
