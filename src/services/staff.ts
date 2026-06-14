@@ -25,6 +25,7 @@ function staffFromRow(row: Record<string, unknown>): StaffMember {
     isActive: row.is_active as boolean,
     createdAt: row.created_at as string,
     createdBy: (row.created_by as string) || undefined,
+    lastLoginAt: (row.last_login_at as string) || null,
   };
 }
 
@@ -151,6 +152,42 @@ export const staffService = {
     }
     const { error } = await sb.from("staff_members").delete().eq("id", id);
     if (error) throw new Error(error.message);
+  },
+
+  async recordLastLogin(email: string): Promise<void> {
+    const normalized = email.trim().toLowerCase();
+    if (!normalized) return;
+
+    const now = new Date().toISOString();
+    const sb = getSupabaseSafe();
+
+    if (!sb) {
+      const items = readLocal();
+      const idx = items.findIndex((s) => s.email.toLowerCase() === normalized);
+      if (idx >= 0) {
+        items[idx] = { ...items[idx], lastLoginAt: now };
+        writeLocal(items);
+      }
+      return;
+    }
+
+    const { data, error } = await sb.rpc("record_staff_last_login");
+    if (error) {
+      console.warn("[Supabase] recordLastLogin rpc:", error.message);
+      const { error: fallbackError } = await sb
+        .from("staff_members")
+        .update({ last_login_at: now })
+        .ilike("email", normalized)
+        .select("id");
+      if (fallbackError) {
+        console.warn("[Supabase] recordLastLogin fallback:", fallbackError.message);
+      }
+      return;
+    }
+
+    if (!data) {
+      console.warn("[Supabase] recordLastLogin: no matching staff row for", normalized);
+    }
   },
 
   async resolveAdminAccess(userId: string, email: string): Promise<boolean> {

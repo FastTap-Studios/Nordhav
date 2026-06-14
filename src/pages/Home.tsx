@@ -4,18 +4,15 @@ import {
   ArrowRight,
   Check,
   Heart,
-  Lock,
-  RotateCcw,
   ShoppingCart,
   Star,
-  Truck,
-  UserCheck,
 } from "lucide-react";
 import { dbService } from "../services/db";
 import { Product } from "../types";
 import { useCart } from "../hooks/useCart";
 import {
   resolveImageUrl,
+  publicImagePath,
   HERO_BANNER,
   CAT_LURES,
   CAT_REELS,
@@ -24,6 +21,9 @@ import {
   CAT_JACKET,
   CAT_NET,
 } from "../lib/images";
+
+const BLOG_JERKBAIT = publicImagePath("nordhav_jerkbait_1781308554224.jpg");
+const BLOG_WADERS = publicImagePath("nordhav_waders_1781308619366.jpg");
 
 const fishingCategories = [
   { name: "Gäddfiske", image: CAT_LURES, query: "Beten" },
@@ -38,28 +38,21 @@ const blogPosts = [
   {
     title: "5 tips för lyckat havsöringsfiske",
     excerpt: "Så maxar du chansen när öringen går nära land. Lär dig tider och platser.",
-    image: "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&q=80&w=800",
+    image: CAT_SPINNER,
     link: "/shop?category=Beten",
   },
   {
     title: "Så väljer du rätt bete",
     excerpt: "En guide till färg, form och rörelse i olika förhållanden för gädda, gös och abborre.",
-    image: "https://images.unsplash.com/photo-1518151814616-b5a10057ceec?auto=format&fit=crop&q=80&w=800",
+    image: BLOG_JERKBAIT,
     link: "/shop?category=Beten",
   },
   {
     title: "Klä dig rätt på vattnet",
     excerpt: "Lager-på-lager som håller dig torr, varm och bekväm oavsett vind och väta.",
-    image: "https://images.unsplash.com/photo-1498084393753-b411b2d26b34?auto=format&fit=crop&q=80&w=800",
+    image: BLOG_WADERS,
     link: "/shop?category=Fiskekläder",
   },
-];
-
-const trustBadges = [
-  { icon: Truck, title: "Fri frakt över 699 kr", desc: "Snabb leverans 1–2 dagar" },
-  { icon: Lock, title: "Säkra betalningar", desc: "Kort, Klarna & Swish" },
-  { icon: UserCheck, title: "Expertkunskap", desc: "Vi finns här för dig" },
-  { icon: RotateCcw, title: "Enkla returer", desc: "30 dagars öppet köp" },
 ];
 
 function pseudoRating(id: string) {
@@ -303,26 +296,6 @@ export default function Home() {
                 </span>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Trust badges */}
-      <section className="bg-white py-8 px-6 sm:px-8">
-        <div className="max-w-7xl mx-auto py-6 sm:py-9 border-t border-b border-slate-100 px-2">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-4 divide-y sm:divide-y-0 lg:divide-x divide-slate-100">
-            {trustBadges.map((badge, i) => (
-              <div
-                key={badge.title}
-                className={`flex items-center space-x-3.5 justify-center sm:justify-start px-2 py-2 sm:py-0 ${i > 0 ? "sm:pl-6 lg:pl-8" : ""}`}
-              >
-                <badge.icon className="h-6 w-6 text-[#70aed3] stroke-[1.5] shrink-0" />
-                <div className="text-left">
-                  <h4 className="text-[11px] font-black text-[#0f2d4a] tracking-wider uppercase">{badge.title}</h4>
-                  <p className="text-[11px] text-slate-500 font-semibold mt-0.5">{badge.desc}</p>
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       </section>

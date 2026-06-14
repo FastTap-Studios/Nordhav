@@ -109,6 +109,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (event === "PASSWORD_RECOVERY") {
         setRecoveryMode(true);
       }
+      if (event === "SIGNED_IN" && session?.user?.email) {
+        setTimeout(() => {
+          void staffService.recordLastLogin(session.user!.email!);
+        }, 100);
+      }
       if (event === "INITIAL_SESSION") return;
       setTimeout(() => syncFromSession(session), 0);
     });
@@ -145,6 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(mock);
       setIsAdmin(isStaffEmail(mock.email));
       localStorage.setItem("fishing_mock_user", JSON.stringify(mock));
+      void staffService.recordLastLogin(mock.email);
       return {};
     }
 
@@ -155,6 +161,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { error } = await sb.auth.signInWithPassword({ email: trimmed, password });
     if (error) return { error: error.message };
+    setTimeout(() => {
+      void staffService.recordLastLogin(trimmed);
+    }, 100);
     return {};
   };
 

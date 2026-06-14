@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { Package, Loader2 } from "lucide-react";
 
@@ -58,6 +58,11 @@ export default function AdminLogin({
     }
   };
 
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    await submit();
+  };
+
   return (
     <div className="admin-shell min-h-screen flex flex-col items-center justify-center px-4 py-12">
       <div className="bg-card p-10 sm:p-12 rounded-xl shadow-lg border border-border/30 text-center max-w-md w-full">
@@ -77,7 +82,7 @@ export default function AdminLogin({
           </p>
         )}
 
-        <div className="space-y-4 text-left">
+        <form onSubmit={handleSubmit} className="space-y-4 text-left">
           <div>
             <label className="block text-xs font-mono text-muted-foreground uppercase tracking-wider mb-2">
               Admin-e-post
@@ -86,6 +91,7 @@ export default function AdminLogin({
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
               className="w-full bg-muted border border-border/30 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
           </div>
@@ -100,6 +106,7 @@ export default function AdminLogin({
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Minst 6 tecken"
+                autoComplete={mode === "login" ? "current-password" : "new-password"}
                 className="w-full bg-muted border border-border/30 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
             </div>
@@ -123,8 +130,7 @@ export default function AdminLogin({
           {info && <p className="text-sm text-emerald-600">{info}</p>}
 
           <button
-            type="button"
-            onClick={submit}
+            type="submit"
             disabled={loading}
             className="w-full inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground py-3 rounded-lg font-mono text-xs uppercase tracking-wider hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
@@ -137,7 +143,9 @@ export default function AdminLogin({
                   : "Skicka återställningslänk"
               : "Logga in"}
           </button>
+        </form>
 
+        <div className="space-y-4 text-left mt-4">
           {supabaseEnabled ? (
             mode === "forgot" ? (
               <button

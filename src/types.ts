@@ -121,6 +121,7 @@ export interface StaffMember {
   isActive: boolean;
   createdAt: string;
   createdBy?: string;
+  lastLoginAt?: string | null;
 }
 
 export function orderNumber(id: string) {

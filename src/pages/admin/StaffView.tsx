@@ -1,10 +1,52 @@
 import { useEffect, useState } from "react";
-import { Plus, Trash2, UserCheck, UserX, Loader2, Shield } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Plus, Trash2, UserCheck, UserX, Loader2, Shield, Clock } from "lucide-react";
 import AdminDialog, { AdminInput, FieldLabel } from "../../components/admin/AdminDialog";
 import { staffService } from "../../services/staff";
 import { StaffMember } from "../../types";
 import { useToast } from "../../components/admin/Toast";
 import { useAuth } from "../../hooks/useAuth";
+
+function formatLastLogin(iso?: string | null): string {
+  if (!iso) return "Aldrig inloggad";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "Okänt";
+  return d.toLocaleString("sv-SE", {
+    weekday: "short",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function LastLoginTooltip({
+  member,
+  x,
+  y,
+}: {
+  member: StaffMember;
+  x: number;
+  y: number;
+}) {
+  return createPortal(
+    <div
+      role="tooltip"
+      className="fixed z-[9999] pointer-events-none"
+      style={{ left: x, top: y - 8, transform: "translate(-50%, -100%)" }}
+    >
+      <div className="rounded-lg border border-border/40 bg-popover text-popover-foreground shadow-lg px-3 py-2.5 min-w-[240px]">
+        <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
+          <Clock className="w-3 h-3" />
+          Senast inloggad
+        </div>
+        <p className="text-sm font-medium text-foreground">{formatLastLogin(member.lastLoginAt)}</p>
+      </div>
+    </div>,
+    document.body
+  );
+}
 
 export default function StaffView() {
   const { toast } = useToast();
@@ -14,6 +56,16 @@ export default function StaffView() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ email: "", fullName: "" });
+  const [hoveredMember, setHoveredMember] = useState<StaffMember | null>(null);
+  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+
+  const showLastLoginTooltip = (member: StaffMember, row: HTMLTableRowElement) => {
+    const rect = row.getBoundingClientRect();
+    setTooltipPos({ x: rect.left + rect.width / 2, y: rect.top });
+    setHoveredMember(member);
+  };
+
+  const hideLastLoginTooltip = () => setHoveredMember(null);
 
   const load = async () => {
     setLoading(true);
@@ -26,6 +78,9 @@ export default function StaffView() {
 
   useEffect(() => {
     load();
+    const refresh = () => load();
+    window.addEventListener("focus", refresh);
+    return () => window.removeEventListener("focus", refresh);
   }, []);
 
   const handleAdd = async () => {
@@ -138,7 +193,12 @@ export default function StaffView() {
                 {staff.map((member) => {
                   const isSelf = member.email.toLowerCase() === user?.email?.toLowerCase();
                   return (
-                    <tr key={member.id} className="border-b border-border/20 hover:bg-muted/20">
+                    <tr
+                      key={member.id}
+                      className="border-b border-border/20 hover:bg-muted/20"
+                      onMouseEnter={(e) => showLastLoginTooltip(member, e.currentTarget)}
+                      onMouseLeave={hideLastLoginTooltip}
+                    >
                       <td className="p-4 font-medium">
                         {member.fullName}
                         {isSelf && (
@@ -248,6 +308,10 @@ export default function StaffView() {
           </p>
         </div>
       </AdminDialog>
+
+      {hoveredMember && (
+        <LastLoginTooltip member={hoveredMember} x={tooltipPos.x} y={tooltipPos.y} />
+      )}
     </div>
   );
 }
