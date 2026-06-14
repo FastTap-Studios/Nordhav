@@ -1,50 +1,83 @@
-import { motion, useScroll, useTransform } from "motion/react";
-import { useRef, useEffect, useState } from "react";
+import { useEffect, useState, FormEvent } from "react";
 import { Link } from "react-router-dom";
-import heroBanner from "../assets/images/nordhav_hero_banner_1781308018253.jpg";
-import catLures from "../assets/images/nordhav_cat_lures_1781309138230.jpg";
-import catRods from "../assets/images/nordhav_cat_rods_1781309153589.jpg";
-import catReels from "../assets/images/nordhav_cat_reels_1781309168529.jpg";
-import { 
-  ArrowRight, 
-  Compass, 
-  Sparkles, 
-  Star, 
-  ShieldCheck, 
-  Truck, 
-  ShoppingCart, 
-  ArrowUpRight, 
-  Anchor, 
-  Check, 
-  Award, 
-  Percent, 
-  Users 
+import {
+  ArrowRight,
+  Check,
+  Heart,
+  Lock,
+  RotateCcw,
+  ShoppingCart,
+  Star,
+  Truck,
+  UserCheck,
 } from "lucide-react";
 import { dbService } from "../services/db";
 import { Product } from "../types";
 import { useCart } from "../hooks/useCart";
+import {
+  resolveImageUrl,
+  HERO_BANNER,
+  CAT_LURES,
+  CAT_REELS,
+  CAT_TACKLEBOX,
+  CAT_SPINNER,
+  CAT_JACKET,
+  CAT_NET,
+} from "../lib/images";
+
+const fishingCategories = [
+  { name: "Gäddfiske", image: CAT_LURES, query: "Beten" },
+  { name: "Abborrfiske", image: CAT_REELS, query: "Rullar" },
+  { name: "Kustfiske", image: CAT_TACKLEBOX, query: "Tillbehör" },
+  { name: "Flugfiske", image: CAT_SPINNER, query: "Beten" },
+  { name: "Kläder", image: CAT_JACKET, query: "Fiskekläder" },
+  { name: "Elektronik", image: CAT_NET, query: "Tillbehör" },
+];
+
+const blogPosts = [
+  {
+    title: "5 tips för lyckat havsöringsfiske",
+    excerpt: "Så maxar du chansen när öringen går nära land. Lär dig tider och platser.",
+    image: "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&q=80&w=800",
+    link: "/shop?category=Beten",
+  },
+  {
+    title: "Så väljer du rätt bete",
+    excerpt: "En guide till färg, form och rörelse i olika förhållanden för gädda, gös och abborre.",
+    image: "https://images.unsplash.com/photo-1518151814616-b5a10057ceec?auto=format&fit=crop&q=80&w=800",
+    link: "/shop?category=Beten",
+  },
+  {
+    title: "Klä dig rätt på vattnet",
+    excerpt: "Lager-på-lager som håller dig torr, varm och bekväm oavsett vind och väta.",
+    image: "https://images.unsplash.com/photo-1498084393753-b411b2d26b34?auto=format&fit=crop&q=80&w=800",
+    link: "/shop?category=Fiskekläder",
+  },
+];
+
+const trustBadges = [
+  { icon: Truck, title: "Fri frakt över 699 kr", desc: "Snabb leverans 1–2 dagar" },
+  { icon: Lock, title: "Säkra betalningar", desc: "Kort, Klarna & Swish" },
+  { icon: UserCheck, title: "Expertkunskap", desc: "Vi finns här för dig" },
+  { icon: RotateCcw, title: "Enkla returer", desc: "30 dagars öppet köp" },
+];
+
+function pseudoRating(id: string) {
+  const hash = id.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return { score: "4.9", count: 28 + (hash % 100) };
+}
 
 export default function Home() {
-  const heroRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({
-    target: heroRef,
-    offset: ["start start", "end start"],
-  });
-
-  const backgroundY = useTransform(scrollYProgress, [0, 1], ["0%", "30%"]);
-  const textY = useTransform(scrollYProgress, [0, 1], ["0%", "80%"]);
-  const opacityY = useTransform(scrollYProgress, [0, 0.6], [1, 0]);
-
-  const [allProducts, setAllProducts] = useState<Product[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string>("Alla");
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [newsletterEmail, setNewsletterEmail] = useState("");
   const { addToCart } = useCart();
 
   useEffect(() => {
     async function loadProducts() {
       try {
         const prod = await dbService.getProducts();
-        setAllProducts(prod.filter((p) => p.isActive !== false));
+        setProducts(prod.filter((p) => p.isActive !== false).slice(0, 6));
       } catch (err) {
         console.error("Failed to load products for home:", err);
       } finally {
@@ -54,468 +87,329 @@ export default function Home() {
     loadProducts();
   }, []);
 
-  const filteredProducts = selectedCategory === "Alla"
-    ? allProducts.slice(0, 8)
-    : allProducts.filter(p => p.category === selectedCategory).slice(0, 8);
-
-  const valueProps = [
-    {
-      icon: <Truck className="h-5 w-5 text-amber-500" />,
-      title: "Fri Expressfrakt",
-      desc: "Över 799 kr. Skickas inom 24h med PostNord",
-    },
-    {
-      icon: <ShieldCheck className="h-5 w-5 text-emerald-500" />,
-      title: "Säker Betalning",
-      desc: "Välj Klarna, Swish eller kort via Stripe",
-    },
-    {
-      icon: <Award className="h-5 w-5 text-amber-500" />,
-      title: "Svensk Trygghetsgaranti",
-      desc: "30 dagars öppet köp & fullständiga garantier",
-    },
-  ];
-
-  const categories = [
-    {
-      name: "Premium Beten",
-      tagline: "Handjusterade wobblers & gäddbeten",
-      image: catLures,
-      query: "Beten",
-      count: "Flytande, sjunkande & ytbeten"
-    },
-    {
-      name: "Innovativa Spön",
-      tagline: "Känsliga kolfiberspön för perfekt stöt",
-      image: catRods,
-      query: "Spön",
-      count: "Ultralätta till tunga spön"
-    },
-    {
-      name: "Högpresterande Rullar",
-      tagline: "Silkeslen bromskraft för drömfångsten",
-      image: catReels,
-      query: "Rullar",
-      count: "Haspel- & multirullar"
-    }
-  ];
-
-
-
-  const testimonialReviews = [
-    {
-      name: "Mikael Söderstam",
-      role: "Gäddfiskare",
-      city: "Örnsköldsvik",
-      stars: 5,
-      review: "Silver Flash Minnow har gett mig mitt nya personbästa på 11.2 kg! Gången i vattnet är helt enastående.",
-    },
-    {
-      name: "Sofie Lindqvist",
-      role: "Sportfiske-entusiast",
-      city: "Motala",
-      stars: 5,
-      review: "Spöna från Pro Series ger en exceptionell kontakt med betet. Blixtsnabb leverans, rekommenderas varmt!",
-    },
-    {
-      name: "Johan Bergström",
-      role: "Havsöring-specialist",
-      city: "Varberg",
-      stars: 5,
-      review: "Riktigt trevlig butik med genuina produkter. Kundtjänsten svarade direkt i telefon och gav ovärderliga rekommendationer.",
-    },
-  ];
+  const handleNewsletter = (e: FormEvent) => {
+    e.preventDefault();
+    if (!newsletterEmail.trim()) return;
+    alert("Tack! Du är nu registrerad för vårt nyhetsbrev.");
+    setNewsletterEmail("");
+  };
 
   return (
-    <div className="bg-[#fafbfc] min-h-screen font-sans antialiased text-slate-900 selection:bg-emerald-900 selection:text-white">
-      
-      {/* 1. Compact & Sleek Luxury Hero Section */}
-      <section ref={heroRef} className="relative h-[55vh] sm:h-[65vh] min-h-[440px] flex items-center justify-center overflow-hidden bg-[#040e0a]">
-        
-        {/* Parallax Background */}
-        <motion.div
-          style={{ y: backgroundY, backgroundImage: `url(${heroBanner})` }}
-          className="absolute inset-0 z-0 bg-cover bg-center"
-        >
-          {/* Rich Dark Spruce Gradient Vignette Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-b from-[#0b231a]/40 via-[#040e0a]/75 to-[#040e0a]" />
-        </motion.div>
+    <div className="bg-[#fbfcff] min-h-screen text-slate-800">
+      {/* Hero */}
+      <section className="relative bg-[#ebf3f7] overflow-hidden min-h-[460px] lg:min-h-[520px] flex items-center">
+        <div className="absolute right-0 top-0 bottom-0 w-full lg:w-[60%] z-0 h-full">
+          <img
+            src={HERO_BANNER}
+            alt="Fiskare vid svensk kust"
+            className="w-full h-full object-cover object-center filter brightness-[1.02]"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#ebf3f7] via-[#ebf3f7]/60 to-transparent lg:block hidden" />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/15 to-[#ebf3f7] lg:hidden block" />
+        </div>
 
-        {/* Ambient Warm Golden Glow Element */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-emerald-500/10 rounded-full filter blur-[120px] pointer-events-none" />
+        <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 w-full relative z-10 py-16 lg:py-0">
+          <div className="max-w-xl text-left space-y-6">
+            <div className="space-y-3">
+              <span className="text-[12px] font-extrabold tracking-[0.25em] text-[#70aed3] uppercase block">
+                Utvalt för hav, sjö & kust
+              </span>
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-[#0f2d4a] uppercase tracking-tight leading-[1.1]">
+                Fiske för
+                <br className="hidden sm:inline" />
+                ljusa dagar
+                <br className="hidden sm:inline" />
+                på vattnet
+              </h1>
+              <p className="text-[#334e68] text-[14px] sm:text-base leading-relaxed font-semibold max-w-md">
+                Noggrant utvalda beten, spön och kläder för fiskeminnen som varar. Utrustning du kan lita på – oavsett
+                äventyr.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-4 pt-2">
+              <Link
+                to="/shop"
+                className="px-6 py-4 bg-[#70aed3] hover:bg-[#5fa0c8] text-white font-extrabold text-[11px] tracking-widest uppercase rounded-sm transition-all shadow-sm duration-200"
+              >
+                Shoppa nyheter
+              </Link>
+              <Link
+                to="/shop"
+                className="px-6 py-4 border border-[#ccccdc] hover:bg-white text-[#334e68] font-extrabold text-[11px] tracking-widest uppercase rounded-sm transition-all duration-200"
+              >
+                Upptäck sortiment
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
 
-        <div className="relative z-10 text-center px-6 max-w-5xl mx-auto flex flex-col items-center">
-          
-          {/* Subtle floating badge */}
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="inline-flex items-center space-x-2.5 bg-emerald-950/70 border border-emerald-800/40 backdrop-blur-md px-4 py-1.5 rounded-full mb-4.5 shadow-lg"
-          >
-            <Compass className="h-3.5 w-3.5 text-amber-400 animate-spin-slow" />
-            <span className="text-[9px] font-extrabold text-amber-200 uppercase tracking-widest font-mono">Premium Sportfiskeutrustning</span>
-          </motion.div>
+      {/* Category circles */}
+      <section className="bg-white py-12 border-b border-slate-100">
+        <div className="max-w-7xl mx-auto px-6 sm:px-8">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-6">
+            {fishingCategories.map((cat) => (
+              <Link
+                key={cat.name}
+                to={`/shop?category=${encodeURIComponent(cat.query)}`}
+                className="group flex flex-col items-center text-center bg-[#f0f4f8] hover:bg-[#e1e8f0] p-5 rounded-2xl transition-all duration-300 border border-[#e4e7eb]/40"
+              >
+                <div className="h-28 w-28 rounded-full bg-white overflow-hidden mb-4 shadow-inner border border-slate-100/60 transition-transform group-hover:scale-105 duration-300">
+                  <img
+                    src={cat.image}
+                    alt={cat.name}
+                    className="w-full h-full object-cover filter brightness-[1.01]"
+                  />
+                </div>
+                <span className="text-[12px] font-black tracking-widest text-[#0f2d4a] uppercase">{cat.name}</span>
+                <span className="text-[10px] font-bold text-[#70aed3] group-hover:text-[#5fa0c8] mt-1.5 inline-flex items-center gap-1 transition-colors">
+                  Se produkter <ArrowRight className="h-3 w-3 stroke-[2.5]" />
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
 
-          {/* Sleek Hero Headline */}
-          <motion.h1
-            style={{ y: textY, opacity: opacityY }}
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.9, delay: 0.1 }}
-            className="text-3xl sm:text-5xl md:text-6xl font-extrabold text-white tracking-tighter leading-none mb-3.5 uppercase"
-          >
-            PRECISION <br />
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-emerald-300 via-emerald-200 to-amber-300 leading-none">
-              MÖTER VILDMARKEN
-            </span>
-          </motion.h1>
-
-          <motion.p
-            style={{ y: textY, opacity: opacityY }}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.9, delay: 0.2 }}
-            className="text-xs sm:text-sm md:text-base text-emerald-100/90 max-w-2xl mx-auto mb-7 font-medium leading-relaxed font-sans"
-          >
-            Handplockade beten och skandinavisk utrustning som tål de allra tuffaste tagen. Formgivet i Göteborg för den hängivna sportfiskaren.
-          </motion.p>
-
-          {/* Sophisticated CTA pair */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.8, delay: 0.3 }}
-            className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full sm:w-auto"
-          >
+      {/* Featured products */}
+      <section className="py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-6 sm:px-8">
+          <div className="flex justify-between items-end border-b border-slate-100 pb-3 mb-8">
+            <h2 className="text-[13px] font-black text-[#0f2d4a] tracking-[0.14em] uppercase">Utvalda produkter</h2>
             <Link
               to="/shop"
-              className="w-full sm:w-auto px-7 py-3.5 bg-amber-500 text-slate-950 rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center space-x-2.5 shadow-xl shadow-amber-500/10 hover:bg-amber-400 transition-all hover:-translate-y-0.5"
+              className="text-[#70aed3] hover:text-[#5fa0c8] transition-colors text-[10px] font-extrabold tracking-widest uppercase inline-flex items-center gap-1"
             >
-              <span>UTFORSKA BUTIKEN</span>
-              <ArrowRight className="h-3.5 w-3.5 stroke-[3px]" />
+              <span>Se alla produkter</span>
+              <span>→</span>
             </Link>
-            <Link
-              to="/shop?category=Beten"
-              className="w-full sm:w-auto px-7 py-3.5 bg-white/10 backdrop-blur-md text-white border border-white/15 rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center shadow-lg hover:bg-white/15 transition-all text-center"
-            >
-              SE VÅRA PREMIUMBETEN
-            </Link>
-          </motion.div>
-          
-        </div>
-
-        {/* Dynamic floating trust indicator */}
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 px-4 py-2 bg-emerald-950/40 backdrop-blur-sm rounded-full border border-emerald-900/30 text-[10px] text-emerald-300 font-semibold font-mono uppercase tracking-wider">
-          <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-          <span>Kundbetyg: 4.9 av 5 baserat på 2,490+ omdömen</span>
-        </div>
-
-      </section>
-
-      {/* 2. Overlapping Value Props Trust Panel */}
-      <section className="relative z-20 max-w-6xl mx-auto px-4 -mt-12 mb-20">
-        <div className="bg-white rounded-3xl p-6 sm:p-10 shadow-xl border border-slate-200/50 grid grid-cols-1 md:grid-cols-3 gap-8 divide-y md:divide-y-0 md:divide-x divide-slate-100">
-          {valueProps.map((item, id) => (
-            <div key={id} className="flex items-start space-x-4.5 p-3 md:px-8">
-              <div className="bg-slate-50 p-3.5 rounded-2xl shrink-0 border border-slate-100 shadow-inner">
-                {item.icon}
-              </div>
-              <div className="space-y-1">
-                <h4 className="font-extrabold text-slate-900 text-xs sm:text-sm uppercase tracking-wider font-mono">{item.title}</h4>
-                <p className="text-slate-500 text-xs leading-relaxed">{item.desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* 3. Interactive Season Recommendations & Mini-Shop */}
-      <section className="py-16 bg-white border-t border-b border-slate-200/40 mb-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          
-          <div className="text-center max-w-xl mx-auto mb-8">
-            <span className="text-[10px] font-black uppercase tracking-widest text-[#0e2c22] font-mono bg-emerald-50 px-3.5 py-1.5 rounded-full border border-emerald-100">Interaktiv Butik</span>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-950 tracking-tight uppercase mt-4">SÄSONGENS REKOMMENDATIONER</h2>
-            <div className="h-1 w-12 bg-amber-500 mx-auto mt-4 rounded-full" />
-            <p className="text-slate-500 font-medium text-sm mt-3 leading-relaxed">Browsa, filtrera och handla vårt premiumutbud direkt från startsidan.</p>
-          </div>
-
-          {/* Interactive Category Filter Tabs directly on the Main Page */}
-          <div className="flex flex-wrap justify-center items-center gap-2 mb-10 pb-2 overflow-x-auto">
-            {["Alla", "Beten", "Spön", "Rullar", "Fiskekläder", "Tillbehör"].map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-4.5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest border transition-all cursor-pointer ${
-                  selectedCategory === cat
-                    ? "bg-[#0b231a] text-amber-400 border-[#0b231a] shadow-md shadow-emerald-950/10 scale-105"
-                    : "bg-slate-50 text-slate-600 border-slate-200/80 hover:bg-slate-100"
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
           </div>
 
           {loading ? (
             <div className="flex justify-center items-center h-64">
-              <div className="animate-spin rounded-full h-8 w-8 border-2 border-emerald-900 border-t-transparent" />
+              <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#70aed3] border-t-transparent" />
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-              {filteredProducts.map((p) => (
-                <motion.div
-                  key={p.id}
-                  whileHover={{ y: -6 }}
-                  className="bg-slate-50 rounded-[2.2rem] overflow-hidden border border-slate-200/60 shadow-sm hover:shadow-xl transition-all group flex flex-col h-full relative"
-                >
-                  <Link to={`/product/${p.id}`} className="relative aspect-square overflow-hidden bg-slate-100 block">
-                    <img
-                      src={p.imageUrl}
-                      alt={p.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                    
-                    {/* Premium Tag indicating high demand */}
-                    {p.stock <= 4 && p.stock > 0 ? (
-                      <div className="absolute top-4 left-4 bg-rose-600 text-white font-extrabold text-[9px] uppercase tracking-widest px-3 py-1 rounded-full shadow-sm font-mono">
-                        FÅTAL KVAR: {p.stock} st
-                      </div>
-                    ) : (
-                      <div className="absolute top-4 left-4 bg-[#0b231a] text-amber-400 font-extrabold text-[9px] uppercase tracking-widest px-3 py-1 rounded-full shadow-sm font-mono flex items-center gap-1">
-                        <Check className="h-3 w-3" /> FÄLTTESTAD
-                      </div>
-                    )}
-                  </Link>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+              {products.map((p) => {
+                const rating = pseudoRating(p.id);
+                return (
+                  <div
+                    key={p.id}
+                    className="bg-slate-50 rounded-[2.2rem] overflow-hidden border border-slate-200/60 shadow-sm hover:shadow-xl transition-all group flex flex-col h-full relative"
+                  >
+                    <button
+                      type="button"
+                      className="absolute top-4 right-4 text-slate-400 hover:text-[#70aed3] active:scale-95 transition-all z-20 bg-white/80 backdrop-blur-sm p-2.5 rounded-full shadow-sm"
+                      aria-label="Lägg till favorit"
+                    >
+                      <Heart className="h-4.5 w-4.5 stroke-[2]" />
+                    </button>
 
-                  <div className="p-6 flex flex-col flex-grow bg-white">
-                    <div className="flex justify-between items-center mb-2.5">
-                      <span className="text-[9px] font-extrabold text-emerald-800 uppercase tracking-widest bg-emerald-50 px-2.5 py-1 rounded-md font-mono">
-                        {p.category}
-                      </span>
-                      {/* Customer simulated stars */}
-                      <div className="flex items-center gap-1 text-amber-500">
-                        <Star className="h-3 w-3 fill-current" />
-                        <span className="text-[10px] font-extrabold text-slate-800 font-mono">4.9</span>
-                        <span className="text-[9px] text-slate-400 font-medium">(28)</span>
-                      </div>
-                    </div>
-
-                    <Link to={`/product/${p.id}`} className="block">
-                      <h4 className="font-extrabold text-slate-900 text-base mb-1.5 line-clamp-1 group-hover:text-emerald-800 transition-colors uppercase tracking-tight">
-                        {p.name}
-                      </h4>
+                    <Link to={`/product/${p.id}`} className="relative aspect-square overflow-hidden bg-slate-100 block">
+                      <img
+                        src={resolveImageUrl(p.imageUrl)}
+                        alt={p.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                      {p.stock <= 4 && p.stock > 0 ? (
+                        <div className="absolute top-4 left-4 bg-rose-600 text-white font-extrabold text-[9px] uppercase tracking-widest px-3 py-1 rounded-full shadow-sm font-mono">
+                          Fåtal kvar: {p.stock} st
+                        </div>
+                      ) : (
+                        <div className="absolute top-4 left-4 bg-[#0f2d4a] text-[#70aed3] font-extrabold text-[9px] uppercase tracking-widest px-3 py-1 rounded-full shadow-sm font-mono flex items-center gap-1">
+                          <Check className="h-3 w-3" />
+                          Fälttestad
+                        </div>
+                      )}
                     </Link>
-                    <p className="text-slate-500 text-xs line-clamp-2 h-8 leading-relaxed mb-5">{p.description}</p>
-                    
-                    <div className="mt-auto pt-4.5 border-t border-slate-100 flex justify-between items-center">
-                      <div>
-                        <span className="text-xs text-slate-400 font-bold block uppercase tracking-wider font-mono">Pris SEK</span>
-                        <span className="text-lg font-black text-slate-950 font-mono">{p.price} :-</span>
+
+                    <div className="p-6 flex flex-col flex-grow bg-white">
+                      <div className="flex justify-between items-center mb-2.5">
+                        <span className="text-[9px] font-extrabold text-[#334e68] uppercase tracking-widest bg-slate-100 px-2.5 py-1 rounded-md font-mono">
+                          {p.category}
+                        </span>
+                        <div className="flex items-center gap-1 text-amber-500">
+                          <Star className="h-3 w-3 fill-current" />
+                          <span className="text-[10px] font-extrabold text-slate-800 font-mono">{rating.score}</span>
+                          <span className="text-[9px] text-slate-400 font-medium">({rating.count})</span>
+                        </div>
                       </div>
-                      <button
-                        onClick={() => addToCart(p)}
-                        disabled={p.stock <= 0}
-                        className="bg-[#0b231a] text-white p-3 rounded-2xl hover:bg-amber-500 hover:text-slate-950 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed transition-all transform active:scale-95 shadow-md flex items-center justify-center cursor-pointer"
-                      >
-                        <ShoppingCart className="h-4.5 w-4.5" />
-                      </button>
+
+                      <Link to={`/product/${p.id}`} className="block">
+                        <h4 className="font-extrabold text-slate-900 text-base mb-1.5 line-clamp-1 group-hover:text-[#70aed3] transition-colors uppercase tracking-tight">
+                          {p.name}
+                        </h4>
+                      </Link>
+                      <p className="text-slate-500 text-xs line-clamp-2 h-8 leading-relaxed mb-5">{p.description}</p>
+
+                      <div className="mt-auto pt-4 border-t border-slate-100 flex justify-between items-center">
+                        <div>
+                          <span className="text-xs text-slate-400 font-bold block uppercase tracking-wider font-mono">
+                            Pris SEK
+                          </span>
+                          <span className="text-lg font-black text-slate-950 font-mono">{p.price} :-</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => addToCart(p)}
+                          disabled={p.stock <= 0}
+                          className="bg-[#0f2d4a] text-white p-3 rounded-2xl hover:bg-[#70aed3] disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed transition-all transform active:scale-95 shadow-md flex items-center justify-center cursor-pointer"
+                        >
+                          <ShoppingCart className="h-4.5 w-4.5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </motion.div>
-              ))}
+                );
+              })}
             </div>
           )}
-
-          <div className="text-center mt-12">
-            <Link
-              to="/shop"
-              className="inline-flex items-center space-x-2 bg-[#0b231a] text-white hover:bg-emerald-800 px-10 py-4.5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-xl hover:shadow-emerald-950/10"
-            >
-              <span>SE HELA VÅRT PROFFSSORTIMENT</span>
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
         </div>
       </section>
 
-      {/* 4. Elegant Category Grid */}
-      <section className="py-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-20">
-        <div className="text-center md:text-left md:flex justify-between items-end mb-12">
-          <div className="space-y-2">
-            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-800 font-mono bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100">Hitta rätt verktyg</span>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight uppercase mt-2">VÅRA HUVUDKATEGORIER</h2>
-          </div>
-          <Link
-            to="/shop"
-            className="inline-flex items-center space-x-1 text-xs font-black uppercase tracking-widest text-emerald-800 hover:text-emerald-950 transition-colors"
-          >
-            <span>Se alla kategorier</span>
-            <ArrowUpRight className="h-4 w-4" />
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {categories.map((cat, index) => (
-            <motion.div
-              initial={{ opacity: 0, y: 25 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: index * 0.1, duration: 0.6 }}
-              key={cat.name}
-              className="group relative h-[420px] rounded-[2.5rem] overflow-hidden border border-slate-200/80 shadow-md bg-white flex flex-col justify-end"
-            >
-              <div className="absolute inset-0 overflow-hidden">
-                <img
-                  src={cat.image}
-                  alt={cat.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
+      {/* Promo banner */}
+      <section className="bg-white py-6 px-6 sm:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="bg-[#ebf3f7] rounded-2xl p-8 sm:p-11 relative overflow-hidden flex flex-col md:flex-row justify-between items-center gap-6 border border-slate-100">
+            <div className="absolute top-1/2 left-2/3 -translate-y-1/2 -translate-x-1/2 w-80 h-32 bg-[#70aed3]/10 filter blur-[50px] pointer-events-none" />
+            <div className="relative z-10 text-left space-y-3.5 flex-1">
+              <div className="flex items-center gap-2 text-[#0f2d4a]">
+                <h2 className="text-2xl sm:text-3xl font-black tracking-widest uppercase">Sommarfiske på kusten</h2>
+                <span className="text-xl sm:text-2xl text-[#70aed3]">☼</span>
               </div>
-              <div className="relative z-10 p-8 space-y-4">
-                <div>
-                  <span className="text-[9px] font-black uppercase tracking-widest text-amber-400 bg-[#0b231a] px-3 py-1 rounded-full border border-emerald-800/40 font-mono">
-                    {cat.count}
-                  </span>
-                  <h3 className="text-2xl font-extrabold text-white mt-3 uppercase tracking-tight">{cat.name}</h3>
-                  <p className="text-sm text-slate-300 mt-1 leading-relaxed font-medium">{cat.tagline}</p>
-                </div>
+              <div className="space-y-1">
+                <p className="text-[#0f2d4a] font-bold text-sm sm:text-base leading-none">Havsöringssäsongen är här!</p>
+                <p className="text-slate-500 text-xs sm:text-sm font-semibold">
+                  Upptäck våra favoriter för kustens silverjakt.
+                </p>
+              </div>
+              <div className="pt-2">
                 <Link
-                  to={`/shop?category=${cat.query}`}
-                  className="inline-flex w-full items-center justify-center py-4 bg-white text-slate-950 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-amber-400 hover:text-slate-950 transition-all shadow-md"
+                  to="/shop?category=Beten"
+                  className="inline-block px-6 py-3 bg-white hover:bg-slate-50 text-[#334e68] border border-slate-200/80 font-black text-[11px] tracking-widest uppercase rounded-md shadow-sm transition-colors duration-200"
                 >
-                  <span>UTFORSKA UTBUDET</span>
-                  <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                  Se våra tips
                 </Link>
               </div>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* 6. High-end Narrative Section (Göteborg Archipelago Theme) */}
-      <section className="py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-[#071a13] rounded-[3.5rem] overflow-hidden shadow-2xl border border-emerald-950/60 relative grid grid-cols-1 lg:grid-cols-12">
-          
-          {/* Text content */}
-          <div className="lg:col-span-7 p-8 sm:p-16 lg:p-24 flex flex-col justify-center relative z-10 space-y-8">
-            <div className="space-y-2">
-              <span className="text-[10px] font-black uppercase tracking-widest text-[#0e2c22] font-mono bg-amber-400 px-3 py-1 rounded-full border border-amber-300 w-fit text-slate-950">
-                GÖTEBORG SKÄRGÅRD
-              </span>
-              <h2 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight leading-none uppercase mt-2">
-                FÖDD UR DEN <br />
-                <span className="text-amber-400 font-serif lowercase italic font-normal tracking-normal leading-normal">
-                  nordiska vildmarken
+            </div>
+            <div className="relative shrink-0 flex items-center justify-center z-10">
+              <div className="h-28 w-28 rounded-full border border-white bg-white/70 shadow-lg flex flex-col items-center justify-center p-3 text-center backdrop-blur-sm">
+                <span className="text-[8px] text-[#70aed3] font-extrabold uppercase tracking-widest">Upp till</span>
+                <span className="text-2xl font-black text-[#0f2d4a] leading-tight">20%</span>
+                <span className="text-[7px] text-[#70aed3] font-bold uppercase tracking-widest mt-0.5">på utvalda</span>
+                <span className="text-[7px] text-[#70aed3] font-bold uppercase tracking-widest leading-none">
+                  produkter
                 </span>
-              </h2>
-            </div>
-            
-            <p className="text-slate-300 text-sm leading-relaxed font-normal">
-              Vi grundades på de saltstänkta klipporna i Göteborgs skärgård med visionen att gifta samman renodlat skandinaviskt kvalitetstänk med obeveklig driftsäkerhet på vattnet. Våra produkter testas under brutala arktiska förhållanden, i iskallt saltvatten och mot landets tuffaste rovfiskar.
-            </p>
-
-            <div className="grid grid-cols-3 gap-4 pt-6 border-t border-emerald-900/40">
-              <div className="space-y-1">
-                <p className="text-xl sm:text-2.5xl font-black text-white font-mono">100%</p>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider font-mono">Handbyggt & testat</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-xl sm:text-2.5xl font-black text-white font-mono">24 MÅN</p>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider font-mono">Full garanti</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-xl sm:text-2.5xl font-black text-white font-mono">KLARNA</p>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider font-mono">Betalningspartner</p>
               </div>
             </div>
           </div>
-
-          {/* Epic Image side */}
-          <div className="lg:col-span-5 relative h-80 lg:h-auto min-h-[400px]">
-            <img
-              src="https://images.unsplash.com/photo-1516062423079-7ca13cca775f?auto=format&fit=crop&q=80&w=1200"
-              alt="Skandinavisk Fiske"
-              className="absolute inset-0 w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t lg:bg-gradient-to-r from-[#071a13] via-transparent to-transparent pointer-events-none" />
-          </div>
-
         </div>
       </section>
 
-      {/* 7. Stunning Trustpilot-style Testimonials Grid */}
-      <section className="py-24 bg-slate-50 border-t border-slate-200/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          
-          <div className="text-center max-w-xl mx-auto mb-16">
-            <span className="text-[10px] font-black uppercase tracking-widest text-[#0b231a] font-mono bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100">Angler community</span>
-            <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight uppercase mt-4">VAD VÅRA KUNDER SÄGER</h2>
-            <div className="flex justify-center items-center gap-1 mt-2 text-amber-500 text-sm">
-              <Star className="h-4 w-4 fill-amber-500" />
-              <Star className="h-4 w-4 fill-amber-500" />
-              <Star className="h-4 w-4 fill-amber-500" />
-              <Star className="h-4 w-4 fill-amber-500" />
-              <Star className="h-4 w-4 fill-amber-500" />
-              <span className="text-slate-800 font-extrabold font-mono text-xs ml-1">4.9/5 • 2,490 omdömen</span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {testimonialReviews.map((item, idx) => (
+      {/* Trust badges */}
+      <section className="bg-white py-8 px-6 sm:px-8">
+        <div className="max-w-7xl mx-auto py-6 sm:py-9 border-t border-b border-slate-100 px-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-4 divide-y sm:divide-y-0 lg:divide-x divide-slate-100">
+            {trustBadges.map((badge, i) => (
               <div
-                key={idx}
-                className="bg-white p-8 rounded-[2rem] border border-slate-200/50 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow relative"
+                key={badge.title}
+                className={`flex items-center space-x-3.5 justify-center sm:justify-start px-2 py-2 sm:py-0 ${i > 0 ? "sm:pl-6 lg:pl-8" : ""}`}
               >
-                <div className="space-y-4">
-                  <div className="flex space-x-1">
-                    {[...Array(item.stars)].map((_, i) => (
-                      <Star key={i} className="h-4.5 w-4.5 text-amber-500 fill-amber-500" />
-                    ))}
-                  </div>
-                  <p className="text-slate-600 text-sm italic leading-relaxed font-medium">
-                    "{item.review}"
-                  </p>
-                </div>
-                
-                <div className="mt-8 pt-4.5 border-t border-slate-100 flex items-center justify-between">
-                  <div>
-                    <h4 className="font-extrabold text-slate-900 text-sm uppercase tracking-tight">{item.name}</h4>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono">{item.role}</p>
-                  </div>
-                  <span className="text-[10px] font-extrabold text-emerald-800 uppercase tracking-widest font-mono bg-emerald-50 px-2.5 py-1 rounded">
-                    {item.city}
-                  </span>
+                <badge.icon className="h-6 w-6 text-[#70aed3] stroke-[1.5] shrink-0" />
+                <div className="text-left">
+                  <h4 className="text-[11px] font-black text-[#0f2d4a] tracking-wider uppercase">{badge.title}</h4>
+                  <p className="text-[11px] text-slate-500 font-semibold mt-0.5">{badge.desc}</p>
                 </div>
               </div>
             ))}
           </div>
-
         </div>
       </section>
 
-      {/* 8. Majestic Nature Clean Footer CTA */}
-      <section className="py-24 bg-[#0b231a] text-white relative overflow-hidden text-center">
-        {/* Subtle top light gradient */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-900 via-[#0b231a] to-[#040e0a] opacity-90 pointer-events-none" />
-        
-        <div className="relative z-10 max-w-4xl mx-auto px-6">
-          <Anchor className="h-10 w-10 text-amber-400 mx-auto mb-6 opacity-90 stroke-[1.5]" />
-          <h2 className="text-3xl sm:text-5xl font-extrabold uppercase tracking-tight mb-4">SÄKRA HÖSTFÅNGSTERNA NU</h2>
-          <p className="text-emerald-200/90 text-sm sm:text-base max-w-xl mx-auto mb-10 leading-relaxed font-medium">
-            Hitta optimala kombinationer av hyperkänsliga kolfiberspön och balanserade svenskjusterade beten. 
-          </p>
-          <Link
-            to="/shop"
-            className="inline-flex bg-amber-500 text-slate-950 px-10 py-5 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-amber-400 transition-all shadow-2xl hover:shadow-amber-500/20"
+      {/* Inspiration */}
+      <section className="py-12 bg-white px-6 sm:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex justify-between items-end border-b border-slate-100 pb-3 mb-8">
+            <h2 className="text-[13px] font-black text-[#0f2d4a] tracking-[0.14em] uppercase">Inspiration & tips</h2>
+            <Link
+              to="/shop"
+              className="text-[#70aed3] hover:text-[#5fa0c8] transition-colors text-[10px] font-extrabold tracking-widest uppercase inline-flex items-center gap-1"
+            >
+              <span>Läs fler artiklar</span>
+              <span>→</span>
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {blogPosts.map((post) => (
+              <Link
+                key={post.title}
+                to={post.link}
+                className="rounded-2xl overflow-hidden border border-slate-100 bg-[#f9fbfc] hover:shadow-md transition-all duration-300 flex flex-col text-left group"
+              >
+                <div className="aspect-[16/10] overflow-hidden relative h-52">
+                  <img
+                    src={post.image}
+                    alt={post.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                </div>
+                <div className="p-6 flex flex-col flex-grow space-y-2.5">
+                  <h3 className="text-sm font-black text-[#0f2d4a] uppercase tracking-tight">{post.title}</h3>
+                  <p className="text-slate-500 text-xs font-semibold leading-relaxed">{post.excerpt}</p>
+                  <div className="pt-2 mt-auto">
+                    <span className="text-[#70aed3] group-hover:text-[#5fa0c8] text-[10px] font-black tracking-widest uppercase inline-flex items-center gap-1 transition-colors">
+                      Läs mer →
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Newsletter */}
+      <section className="bg-[#f0f4f8] py-16 px-6 sm:px-8 text-slate-800 relative overflow-hidden border-t border-slate-100">
+        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-between gap-8 relative z-10">
+          <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-4 max-w-2xl">
+            <div className="h-16 w-16 rounded-full border border-[#ccccdc] bg-white flex items-center justify-center shrink-0 shadow-sm">
+              <span className="text-[#70aed3] text-2xl">✉</span>
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-lg sm:text-xl font-black uppercase tracking-wider text-[#0f2d4a]">
+                Få nyheter, tips & erbjudanden
+              </h3>
+              <p className="text-slate-500 text-xs font-bold leading-relaxed max-w-lg">
+                Registrera dig för vårt nyhetsbrev och få{" "}
+                <span className="text-[#70aed3] font-extrabold">10% rabatt</span> på ditt första köp.
+              </p>
+            </div>
+          </div>
+          <form
+            onSubmit={handleNewsletter}
+            className="flex flex-col sm:flex-row w-full lg:w-auto items-stretch gap-2.5 sm:max-w-md"
           >
-            SÄKRA DIN UTRUSTNING IDAG
-          </Link>
+            <input
+              type="email"
+              required
+              value={newsletterEmail}
+              onChange={(e) => setNewsletterEmail(e.target.value)}
+              placeholder="Din e-postadress"
+              className="bg-white border border-[#e4e7eb] text-slate-800 placeholder-[#bcccdc] px-5 py-3 rounded-full text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#70aed3] w-full sm:w-64"
+            />
+            <button
+              type="submit"
+              className="px-6 py-3.5 bg-[#70aed3] hover:bg-[#5fa0c8] text-white font-extrabold text-xs uppercase tracking-widest rounded-full transition-colors shrink-0 shadow-sm"
+            >
+              Prenumerera
+            </button>
+          </form>
+        </div>
+        <div className="max-w-7xl mx-auto text-center lg:text-left pt-3">
+          <p className="text-[10px] text-slate-400 font-semibold pl-1 lg:pl-20">Du kan när som helst avregistrera dig.</p>
         </div>
       </section>
-
     </div>
   );
 }
