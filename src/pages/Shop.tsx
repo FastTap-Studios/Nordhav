@@ -1,32 +1,54 @@
 import { useState, useEffect } from "react";
 import { Product } from "../types";
 import { useCart } from "../hooks/useCart";
-import { dbService } from "../services/db";
+import { useProductListing } from "../hooks/useProductListing";
+import { getProductStock, productRequiresVariantPick } from "../lib/variants";
 import { motion } from "motion/react";
 import { ShoppingCart, Search, Star, Check } from "lucide-react";
-import { Link, useSearchParams } from "react-router-dom";
+import FavoriteButton from "../components/FavoriteButton";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
+import { resolveImageUrl } from "../lib/images";
+
+function ProductGridSkeleton({ count = 8 }: { count?: number }) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+      {Array.from({ length: count }).map((_, i) => (
+        <div
+          key={i}
+          className="bg-white rounded-[2.2rem] overflow-hidden border border-slate-200/60 shadow-sm animate-pulse"
+        >
+          <div className="aspect-square bg-slate-200" />
+          <div className="p-6 space-y-3">
+            <div className="h-3 bg-slate-200 rounded w-1/4" />
+            <div className="h-4 bg-slate-200 rounded w-3/4" />
+            <div className="h-3 bg-slate-100 rounded w-full" />
+            <div className="h-3 bg-slate-100 rounded w-2/3" />
+            <div className="pt-4 border-t border-slate-100 flex justify-between items-center">
+              <div className="h-6 bg-slate-200 rounded w-20" />
+              <div className="h-10 w-10 bg-slate-200 rounded-2xl" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function Shop() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { products, loading } = useProductListing();
   const [searchTerm, setSearchTerm] = useState("");
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedCategory = searchParams.get("category") || "Alla";
+  const navigate = useNavigate();
   const { addToCart } = useCart();
 
-  useEffect(() => {
-    async function fetchProducts() {
-      try {
-        const data = await dbService.getProducts();
-        setProducts(data.filter((p) => p.isActive !== false));
-      } catch (error) {
-        console.error("Error fetching products:", error);
-      } finally {
-        setLoading(false);
-      }
+  const handleQuickAdd = (product: Product) => {
+    if (productRequiresVariantPick(product)) {
+      navigate(`/product/${product.id}`);
+      return;
     }
-    fetchProducts();
-  }, []);
+    addToCart(product);
+  };
 
   const handleCategorySelect = (category: string) => {
     if (category === "Alla") {
@@ -95,10 +117,8 @@ export default function Shop() {
           ))}
         </div>
 
-        {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#0b231a] border-t-transparent" />
-          </div>
+        {loading && products.length === 0 ? (
+          <ProductGridSkeleton />
         ) : filteredProducts.length === 0 ? (
           <div className="bg-white rounded-3xl p-16 text-center border border-slate-200/50 shadow-inner">
             <p className="text-slate-500 font-extrabold text-sm uppercase font-mono">Inga produkter hittades i vårt lager.</p>
@@ -121,11 +141,12 @@ export default function Shop() {
                 layout
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="bg-white rounded-[2.2rem] overflow-hidden border border-slate-200/60 shadow-sm hover:shadow-xl transition-all group flex flex-col"
+                className="bg-white rounded-[2.2rem] overflow-hidden border border-slate-200/60 shadow-sm hover:shadow-xl transition-all group flex flex-col relative"
               >
+                <FavoriteButton product={product} />
                 <Link to={`/product/${product.id}`} className="relative aspect-square overflow-hidden bg-slate-50 block">
                   <img
-                    src={product.imageUrl}
+                    src={resolveImageUrl(product.imageUrl)}
                     alt={product.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
@@ -166,9 +187,10 @@ export default function Shop() {
                       <span className="text-base font-black text-slate-950 font-mono">{product.price} SEK_</span>
                     </div>
                     <button
-                      disabled={product.stock <= 0}
-                      onClick={() => addToCart(product)}
+                      disabled={getProductStock(product) <= 0}
+                      onClick={() => handleQuickAdd(product)}
                       className="bg-[#0b231a] text-white p-3 rounded-2xl hover:bg-amber-500 hover:text-slate-950 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed transition-all transform hover:scale-105 shadow-md cursor-pointer"
+                      title={productRequiresVariantPick(product) ? "Välj storlek" : "Lägg i varukorg"}
                     >
                       <ShoppingCart className="h-4.5 w-4.5" />
                     </button>

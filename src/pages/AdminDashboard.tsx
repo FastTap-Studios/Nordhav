@@ -85,6 +85,8 @@ export default function AdminDashboard() {
         tags: payload.tags,
         isActive: payload.isActive,
         isFeatured: payload.isFeatured,
+        variantLabel: payload.variantLabel,
+        variants: payload.variants,
       });
     }
     await fetchData();

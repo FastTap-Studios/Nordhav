@@ -2,6 +2,8 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { Product } from "../../types";
 import { Sparkles, Loader2, Upload, X } from "lucide-react";
 import AdminDialog, { AdminInput, AdminSelect, AdminTextarea, FieldLabel } from "./AdminDialog";
+import ProductVariantEditor, { prepareProductVariants } from "./ProductVariantEditor";
+import { categoryUsesVariants, defaultVariantLabel, hasVariants } from "../../lib/variants";
 
 const CATEGORIES = ["Beten", "Spön", "Rullar", "Fiskekläder", "Tillbehör"];
 
@@ -28,6 +30,8 @@ const emptyProduct = (): Partial<Product> => ({
   tags: [],
   isActive: true,
   isFeatured: false,
+  variantLabel: undefined,
+  variants: [],
 });
 
 interface ProductFormDialogProps {
@@ -122,12 +126,14 @@ export default function ProductFormDialog({ open, product, onClose, onSave }: Pr
     e.preventDefault();
     setSaving(true);
     try {
-      await onSave(form, product?.id ?? null);
+      await onSave(prepareProductVariants(form), product?.id ?? null);
       onClose();
     } finally {
       setSaving(false);
     }
   };
+
+  const variantsEnabled = categoryUsesVariants(form.category || "Beten") || hasVariants(form);
 
   return (
     <AdminDialog
@@ -275,7 +281,22 @@ export default function ProductFormDialog({ open, product, onClose, onSave }: Pr
           </div>
           <div>
             <FieldLabel>Kategori</FieldLabel>
-            <AdminSelect value={form.category || "Beten"} onChange={(e) => set("category", e.target.value)}>
+            <AdminSelect
+              value={form.category || "Beten"}
+              onChange={(e) => {
+                const category = e.target.value;
+                setForm((prev) => ({
+                  ...prev,
+                  category,
+                  variantLabel:
+                    prev.variants?.length && prev.variantLabel
+                      ? prev.variantLabel
+                      : categoryUsesVariants(category)
+                        ? defaultVariantLabel(category)
+                        : prev.variantLabel,
+                }));
+              }}
+            >
               {CATEGORIES.map((c) => (
                 <option key={c} value={c}>
                   {c}
@@ -296,10 +317,30 @@ export default function ProductFormDialog({ open, product, onClose, onSave }: Pr
               type="number"
               min={0}
               value={form.stock ?? 0}
+              disabled={variantsEnabled && (form.variants?.length ?? 0) > 0}
               onChange={(e) => set("stock", parseInt(e.target.value, 10) || 0)}
             />
+            {variantsEnabled && (form.variants?.length ?? 0) > 0 && (
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Beräknas automatiskt från variantlagret nedan.
+              </p>
+            )}
           </div>
         </div>
+
+        <ProductVariantEditor
+          category={form.category || "Beten"}
+          variantLabel={form.variantLabel}
+          variants={form.variants ?? []}
+          onVariantLabelChange={(label) => set("variantLabel", label)}
+          onVariantsChange={(variants) =>
+            setForm((prev) => ({
+              ...prev,
+              variants,
+              stock: variants.reduce((sum, v) => sum + Math.max(0, v.stock), 0),
+            }))
+          }
+        />
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div>

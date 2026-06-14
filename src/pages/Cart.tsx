@@ -14,6 +14,7 @@ import { discountService } from "../services/discounts";
 import { DiscountCode } from "../types";
 import { calculateCheckoutTotals, FREE_SHIPPING_THRESHOLD, loadStoredDiscount, storeDiscount } from "../lib/checkout";
 import { resolveImageUrl } from "../lib/images";
+import { variantDisplayText } from "../lib/variants";
 import OrderSummary from "../components/checkout/OrderSummary";
 
 export default function Cart() {
@@ -101,7 +102,7 @@ export default function Cart() {
             {cart.map((item) => (
               <motion.div
                 layout
-                key={item.id}
+                key={item.cartLineId || item.id}
                 className="bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm flex items-center gap-6 hover:shadow-md transition-shadow"
               >
                 <div className="h-24 w-24 rounded-2xl overflow-hidden bg-slate-100 flex-shrink-0">
@@ -120,10 +121,15 @@ export default function Cart() {
                       <p className="text-[9px] font-black text-emerald-800 uppercase tracking-widest font-mono mt-1">
                         {item.category}
                       </p>
+                      {item.selectedVariant && (
+                        <p className="text-[10px] font-bold text-slate-600 font-mono mt-1">
+                          {variantDisplayText(item, item.selectedVariant)}
+                        </p>
+                      )}
                     </div>
                     <button
                       type="button"
-                      onClick={() => removeFromCart(item.id)}
+                      onClick={() => removeFromCart(item.cartLineId || item.id)}
                       className="text-slate-300 hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-slate-100"
                       aria-label="Ta bort"
                     >
@@ -134,7 +140,7 @@ export default function Cart() {
                     <div className="flex items-center bg-slate-50 rounded-xl p-1 px-3 border border-slate-200/50">
                       <button
                         type="button"
-                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                        onClick={() => updateQuantity(item.cartLineId || item.id, item.quantity - 1)}
                         className="text-slate-500 hover:text-[#0b231a] p-1 font-extrabold text-base"
                       >
                         −
@@ -144,7 +150,7 @@ export default function Cart() {
                       </span>
                       <button
                         type="button"
-                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                        onClick={() => updateQuantity(item.cartLineId || item.id, item.quantity + 1)}
                         className="text-slate-500 hover:text-[#0b231a] p-1 font-extrabold text-base"
                       >
                         +

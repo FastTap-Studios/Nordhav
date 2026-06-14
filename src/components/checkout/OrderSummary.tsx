@@ -1,6 +1,7 @@
 import { CartItem } from "../../types";
 import { CheckoutTotals, FREE_SHIPPING_THRESHOLD } from "../../lib/checkout";
 import { resolveImageUrl } from "../../lib/images";
+import { variantDisplayText } from "../../lib/variants";
 import { Info, Tag, Truck } from "lucide-react";
 
 interface OrderSummaryProps {
@@ -27,7 +28,7 @@ export default function OrderSummary({
       {!compact && (
         <ul className="space-y-4 mb-6 max-h-64 overflow-y-auto pr-1">
           {items.map((item) => (
-            <li key={item.id} className="flex gap-3">
+            <li key={item.cartLineId || item.id} className="flex gap-3">
               <div className="h-14 w-14 rounded-xl overflow-hidden bg-slate-100 shrink-0">
                 <img
                   src={resolveImageUrl(item.imageUrl)}
@@ -37,6 +38,11 @@ export default function OrderSummary({
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-bold text-slate-900 uppercase truncate">{item.name}</p>
+                {item.selectedVariant && (
+                  <p className="text-[10px] text-emerald-800 font-mono font-bold">
+                    {variantDisplayText(item, item.selectedVariant)}
+                  </p>
+                )}
                 <p className="text-[10px] text-slate-400 font-mono">
                   {item.quantity} × {item.price} kr
                 </p>

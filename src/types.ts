@@ -1,3 +1,18 @@
+export interface ProductVariant {
+  id: string;
+  label: string;
+  stock: number;
+  sku?: string;
+  /** Vikt i gram — används för beten */
+  weightGrams?: number;
+  /** Storlek — används för fiskekläder */
+  size?: string;
+  /** Färg — används för beten och fiskekläder */
+  color?: string;
+  /** Produktbild för denna färg/variant */
+  imageUrl?: string;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -8,6 +23,8 @@ export interface Product {
   stock: number;
   category: string;
   createdAt: string;
+  variantLabel?: string;
+  variants?: ProductVariant[];
   nameEn?: string;
   nameNo?: string;
   descriptionEn?: string;
@@ -42,6 +59,8 @@ export interface DiscountCode {
 
 export interface CartItem extends Product {
   quantity: number;
+  cartLineId: string;
+  selectedVariant?: ProductVariant;
 }
 
 export type OrderStatus =

@@ -1,11 +1,45 @@
 import React, { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
-import { Product } from "../types";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { Product, ProductVariant } from "../types";
 import { useCart } from "../hooks/useCart";
 import { dbService } from "../services/db";
 import { motion } from "motion/react";
+import {
+  cartLineId,
+  extractClothingSizes,
+  extractLureWeights,
+  findVariantForColor,
+  getColorOptionsForProduct,
+  getProductStock,
+  getVariantColorImage,
+  resolveColorImage,
+  colorsMatch,
+  buildDualVariantThumbnails,
+  getDefaultProductImage,
+  getDualVariantMode,
+  hasVariants,
+  pickInitialPrimarySelection,
+  usesColorVariantPicker,
+  usesDualVariantPicker,
+  variantDisplayText,
+} from "../lib/variants";
+import FavoriteButton from "../components/FavoriteButton";
+import {
+  getCachedProduct,
+  getCachedProducts,
+  isFullDetailCached,
+  pickRelatedProducts,
+  setCachedProduct,
+} from "../lib/productCache";
+import {
+  getCachedProductVariants,
+  isVariantImageCacheIncomplete,
+  applyVariantCacheToProduct,
+} from "../lib/productVariantCache";
+import { mergeProductMedia } from "../lib/supabaseMappers";
+import { resolveImageUrl } from "../lib/images";
 import { 
-  ShoppingCart, Shield, Truck, RotateCcw, ChevronRight, Star, Heart, BookmarkCheck, ArrowRight,
+  ShoppingCart, Shield, Truck, RotateCcw, ChevronRight, Star, BookmarkCheck, ArrowRight,
   Weight, Ruler, Waves, Palette, Anchor, Zap, Settings, Droplet, Wind, Box, Minus, Plus, Check
 } from "lucide-react";
 
@@ -105,21 +139,36 @@ function getProductSpecs(product: Product): {
 
 export default function ProductDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [product, setProduct] = useState<Product | null>(null);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+  const [relatedLoading, setRelatedLoading] = useState(false);
+  const [imagesLoading, setImagesLoading] = useState(false);
   const [loading, setLoading] = useState(true);
-  const { cart, addToCart, updateQuantity } = useCart();
-  const [isFavorite, setIsFavorite] = useState(false);
+  const { cart, addToCart, updateQuantity, openCart } = useCart();
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [qty, setQty] = useState(1);
   const [isAdded, setIsAdded] = useState(false);
+  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
+  const [selectedWeight, setSelectedWeight] = useState<number | null>(null);
+  const [selectedSize, setSelectedSize] = useState<string | null>(null);
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
+  const [colorTouched, setColorTouched] = useState(false);
+  const [variantError, setVariantError] = useState(false);
 
   const [zoomPos, setZoomPos] = useState({ x: 50, y: 50 });
   const [isZoomed, setIsZoomed] = useState(false);
 
-  // Reset selected image index when route changes
+  // Scroll to top and reset gallery/variant UI when product route changes
   useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
     setSelectedImageIndex(0);
+    setSelectedColor(null);
+    setSelectedVariant(null);
+    setSelectedWeight(null);
+    setSelectedSize(null);
+    setColorTouched(false);
+    setVariantError(false);
   }, [id]);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -130,38 +179,174 @@ export default function ProductDetail() {
   };
 
   useEffect(() => {
-    async function fetchProduct() {
-      if (!id) return;
-      try {
-        setLoading(true);
-        const prod = await dbService.getProduct(id);
-        setProduct(prod);
+    if (!id) return;
 
-        if (prod) {
-          const allProds = await dbService.getProducts();
-          // Filter products in the same category, excluding the current product
-          const filtered = allProds
-            .filter((p) => p.category === prod.category && p.id !== prod.id)
-            .slice(0, 4);
-          
-          if (filtered.length < 4) {
-            const backfill = allProds
-              .filter((p) => p.id !== prod.id && p.category !== prod.category)
-              .slice(0, 4 - filtered.length);
-            setRelatedProducts([...filtered, ...backfill]);
-          } else {
-            setRelatedProducts(filtered);
-          }
-        }
-        window.scrollTo({ top: 0, behavior: "instant" as any });
+    let cancelled = false;
+
+    const cached = getCachedProduct(id);
+    const fullCached = cached ? isFullDetailCached(id) : false;
+    const cachedVariants = getCachedProductVariants(id);
+
+    if (cached) {
+      const withVariants = cachedVariants
+        ? applyVariantCacheToProduct(cached, cachedVariants)
+        : cached;
+      setProduct(withVariants);
+      setLoading(false);
+      setImagesLoading(!fullCached);
+      const cachedList = getCachedProducts();
+      if (cachedList?.length) {
+        setRelatedProducts(pickRelatedProducts(cachedList, cached.category, cached.id));
+      }
+    } else {
+      setLoading(true);
+      setImagesLoading(true);
+      setProduct(null);
+      setRelatedProducts([]);
+    }
+    setRelatedLoading(true);
+
+    async function loadRelated(category: string, productId: string) {
+      try {
+        const related = await dbService.getRelatedProducts(category, productId);
+        if (!cancelled) setRelatedProducts(related);
       } catch (error) {
         console.error(error);
       } finally {
-        setLoading(false);
+        if (!cancelled) setRelatedLoading(false);
       }
     }
+
+    async function loadVariants(): Promise<Map<string, string> | undefined> {
+      try {
+        const variantData = await dbService.getProductVariants(id);
+        if (cancelled || !variantData) return undefined;
+        setProduct((prev) => {
+          const base = prev ?? cached;
+          if (!base || base.id !== id) return prev;
+          const next = applyVariantCacheToProduct(base, {
+            variants: variantData.variants,
+            variantLabel: variantData.variantLabel,
+            variantImages: variantData.variantImages,
+            hasVariantImages: variantData.variantImages.size > 0,
+          });
+          setCachedProduct(next);
+          return next;
+        });
+        return variantData.variantImages;
+      } catch (error) {
+        console.error(error);
+        return undefined;
+      }
+    }
+
+    async function loadSupplemental(baseProduct?: Product) {
+      const variantsPromise = loadVariants();
+      const mediaPromise = dbService.getProductMedia(id);
+
+      const variantImages = await variantsPromise;
+
+      try {
+        const media = await mediaPromise;
+        if (cancelled || !media) {
+          if (!cancelled) setImagesLoading(false);
+          return;
+        }
+        setProduct((prev) => {
+          const base = prev ?? baseProduct ?? cached;
+          if (!base || base.id !== id) return prev;
+          const merged = mergeProductMedia(base, media, variantImages);
+          setCachedProduct(merged, { fullDetail: true });
+          return merged;
+        });
+      } catch (error) {
+        console.error(error);
+      } finally {
+        if (!cancelled) setImagesLoading(false);
+      }
+    }
+
+    async function fetchProduct() {
+      try {
+        if (fullCached && cached) {
+          void loadRelated(cached.category, cached.id);
+          if (cachedVariants && isVariantImageCacheIncomplete(cachedVariants)) {
+            void loadSupplemental(cached);
+          }
+          return;
+        }
+
+        if (cached) {
+          void loadRelated(cached.category, cached.id);
+          void loadSupplemental(cached);
+          return;
+        }
+
+        const core = await dbService.getProductCore(id);
+        if (cancelled) return;
+
+        if (!core) {
+          setProduct(null);
+          setLoading(false);
+          setImagesLoading(false);
+          setRelatedLoading(false);
+          return;
+        }
+
+        setProduct(core);
+        setLoading(false);
+        void loadRelated(core.category, core.id);
+        void loadSupplemental(core);
+      } catch (error) {
+        console.error(error);
+        if (!cancelled) {
+          setLoading(false);
+          setImagesLoading(false);
+          setRelatedLoading(false);
+        }
+      }
+    }
+
     fetchProduct();
+
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
+
+  useEffect(() => {
+    if (!product) return;
+    setQty(1);
+    setVariantError(false);
+    if (hasVariants(product)) {
+      if (usesColorVariantPicker(product)) {
+        const primary = pickInitialPrimarySelection(product);
+        setSelectedWeight(primary.weightGrams);
+        setSelectedSize(primary.size);
+        setSelectedColor(null);
+        setSelectedVariant(null);
+        setColorTouched(false);
+      } else {
+        setSelectedVariant(null);
+        setSelectedWeight(null);
+        setSelectedSize(null);
+        setSelectedColor(null);
+        setColorTouched(false);
+      }
+    } else {
+      setSelectedVariant(null);
+      setSelectedWeight(null);
+      setSelectedSize(null);
+      setSelectedColor(null);
+      setColorTouched(false);
+    }
+    setSelectedImageIndex(0);
+  }, [product]);
+
+  useEffect(() => {
+    if (!product || usesColorVariantPicker(product)) return;
+    setSelectedImageIndex(0);
+  }, [product, selectedColor, selectedVariant?.id]);
 
   if (loading) {
     return (
@@ -183,27 +368,123 @@ export default function ProductDetail() {
     );
   }
 
-  const images = product.imageUrls && product.imageUrls.length > 0
-    ? product.imageUrls
-    : [product.imageUrl];
-  const currentImage = images[selectedImageIndex] || product.imageUrl;
-
   const { categoryLabel, sku, discountMessage, specs, targetSpecies } = getProductSpecs(product);
 
-  const handleAddToCart = () => {
-    const existingInCart = cart.find((item) => item.id === product.id);
-    if (existingInCart) {
-      updateQuantity(product.id, existingInCart.quantity + qty);
+  const productHasVariants = hasVariants(product);
+  const colorVariantPicker = usesColorVariantPicker(product);
+  const dualVariantPicker = usesDualVariantPicker(product);
+  const dualVariantMode = getDualVariantMode(product);
+  const lureWeights = dualVariantMode === "lure" ? extractLureWeights(product.variants) : [];
+  const clothingSizes = dualVariantMode === "clothing" ? extractClothingSizes(product.variants) : [];
+  const colorOptions = colorVariantPicker
+    ? getColorOptionsForProduct(product, selectedWeight, selectedSize)
+    : [];
+  const dualThumbnails = colorVariantPicker
+    ? buildDualVariantThumbnails(product, colorOptions).map((t) => ({
+        ...t,
+        url: resolveImageUrl(t.url),
+      }))
+    : [];
+  const defaultProductImage = resolveImageUrl(getDefaultProductImage(product));
+  const resolvedColorImage =
+    colorTouched && selectedColor
+      ? resolveColorImage(product, selectedColor, colorOptions, {
+          size: selectedSize,
+          weightGrams: selectedWeight,
+          variant: selectedVariant,
+        })
+      : undefined;
+  const galleryImages = colorVariantPicker
+    ? []
+    : (product.imageUrls?.length ? product.imageUrls : [product.imageUrl])
+        .filter(Boolean)
+        .map(resolveImageUrl);
+  const currentImage = colorVariantPicker
+    ? resolvedColorImage
+      ? resolveImageUrl(resolvedColorImage)
+      : dualThumbnails[selectedImageIndex]?.url ?? dualThumbnails[0]?.url ?? defaultProductImage
+    : galleryImages[selectedImageIndex] || defaultProductImage;
+  const availableStock = productHasVariants
+    ? selectedVariant?.stock ?? 0
+    : getProductStock(product);
+  const variantLabel = product.variantLabel || (product.category === "Beten" ? "Vikt" : "Storlek");
+  const lineId = cartLineId(product.id, selectedVariant?.id);
+
+  const selectLureWeight = (weightGrams: number) => {
+    setSelectedWeight(weightGrams);
+    setSelectedColor(null);
+    setSelectedVariant(null);
+    setColorTouched(false);
+    setSelectedImageIndex(0);
+    setVariantError(false);
+    setQty(1);
+  };
+
+  const selectClothingSize = (size: string) => {
+    setSelectedSize(size);
+    setSelectedColor(null);
+    setSelectedVariant(null);
+    setColorTouched(false);
+    setSelectedImageIndex(0);
+    setVariantError(false);
+    setQty(1);
+  };
+
+  const selectVariantColor = (color: string) => {
+    setColorTouched(true);
+    setSelectedColor(color);
+    setVariantError(false);
+    setQty(1);
+    const variant = findVariantForColor(product.variants, color, {
+      weightGrams: selectedWeight,
+      size: selectedSize,
+    });
+    setSelectedVariant(variant ?? null);
+    const thumbIdx = dualThumbnails.findIndex(
+      (t) => t.color && colorsMatch(t.color, color)
+    );
+    if (thumbIdx >= 0) setSelectedImageIndex(thumbIdx);
+  };
+
+  const selectDualThumbnail = (index: number) => {
+    setSelectedImageIndex(index);
+    const thumb = dualThumbnails[index];
+    if (thumb?.color) {
+      selectVariantColor(thumb.color);
     } else {
-      addToCart(product);
-      if (qty > 1) {
-        updateQuantity(product.id, qty);
-      }
+      setColorTouched(false);
+      setSelectedColor(null);
+      setSelectedVariant(null);
+    }
+  };
+
+  const handleAddToCart = () => {
+    if (productHasVariants && !selectedVariant) {
+      setVariantError(true);
+      return;
+    }
+    if (availableStock <= 0) return;
+
+    setVariantError(false);
+    const existingInCart = cart.find((item) => item.cartLineId === lineId);
+    if (existingInCart) {
+      updateQuantity(lineId, Math.min(existingInCart.quantity + qty, availableStock));
+    } else {
+      addToCart(product, { variant: selectedVariant ?? undefined, quantity: qty });
     }
     setIsAdded(true);
+    openCart();
     setTimeout(() => {
       setIsAdded(false);
     }, 2000);
+  };
+
+  const handleRelatedAdd = (p: Product) => {
+    if (hasVariants(p)) {
+      navigate(`/product/${p.id}`);
+      return;
+    }
+    addToCart(p);
   };
 
   return (
@@ -236,7 +517,9 @@ export default function ProductDetail() {
             >
               <img 
                 src={currentImage} 
-                alt={product.name} 
+                alt={product.name}
+                fetchPriority="high"
+                decoding="async"
                 className="h-full w-full object-cover select-none pointer-events-none transition-transform duration-100 ease-out" 
                 style={{
                   transformOrigin: `${zoomPos.x}% ${zoomPos.y}%`,
@@ -250,36 +533,53 @@ export default function ProductDetail() {
                 <span className="text-[10px] font-bold uppercase tracking-widest font-mono">100% GARANTERAD MATCH</span>
               </div>
 
-              <button
-                onClick={() => setIsFavorite(!isFavorite)}
-                className="absolute top-6 right-6 p-3 rounded-full bg-white/95 border border-slate-100 shadow-md text-slate-600 hover:text-red-500 hover:scale-105 active:scale-95 transition-all cursor-pointer"
-              >
-                <Heart className={`h-5 w-5 ${isFavorite ? "fill-red-500 text-red-500" : ""}`} />
-              </button>
+              <FavoriteButton product={product} variant="hero" />
             </motion.div>
 
             {/* Premium Thumbnail Selector for Multiple Images */}
-            {images.length > 1 && (
+            {imagesLoading ? (
               <div className="flex flex-wrap gap-4 mt-6 justify-center lg:justify-start">
-                {images.map((imgUrl, idx) => (
+                {Array.from({ length: colorVariantPicker ? 3 : 2 }).map((_, idx) => (
+                  <div
+                    key={`thumb-skeleton-${idx}`}
+                    className="w-20 h-20 rounded-2xl bg-slate-200 animate-pulse border border-slate-100"
+                  />
+                ))}
+              </div>
+            ) : (colorVariantPicker ? dualThumbnails.length > 1 : galleryImages.length > 1) ? (
+              <div className="flex flex-wrap gap-4 mt-6 justify-center lg:justify-start">
+                {(colorVariantPicker ? dualThumbnails : galleryImages.map((url) => ({ url }))).map(
+                  (thumb, idx) => (
                   <button
-                    key={`${imgUrl}-${idx}`}
-                    onClick={() => setSelectedImageIndex(idx)}
+                    key={colorVariantPicker ? `${thumb.url}-${thumb.color ?? "default"}-${idx}` : `${thumb.url}-${idx}`}
+                    type="button"
+                    onClick={() =>
+                      colorVariantPicker ? selectDualThumbnail(idx) : setSelectedImageIndex(idx)
+                    }
                     className={`relative w-20 h-20 rounded-2xl overflow-hidden border bg-white transition-all duration-300 transform hover:scale-105 cursor-pointer ${
                       selectedImageIndex === idx
                         ? "ring-2 ring-emerald-800 ring-offset-2 border-transparent scale-102 shadow-md"
                         : "border-slate-200 hover:border-slate-400 shadow-sm"
                     }`}
+                    title={thumb.color ? thumb.color : "Huvudbild"}
                   >
                     <img
-                      src={imgUrl}
-                      alt={`${product.name} bild ${idx + 1}`}
+                      src={thumb.url}
+                      alt={
+                        thumb.color
+                          ? `${product.name} — ${thumb.color}`
+                          : `${product.name} bild ${idx + 1}`
+                      }
+                      loading="lazy"
+                      decoding="async"
+                      fetchPriority="low"
                       className="w-full h-full object-cover select-none pointer-events-none"
                     />
                   </button>
-                ))}
+                  )
+                )}
               </div>
-            )}
+            ) : null}
           </div>
 
           {/* Right: Detailed Product Info Column */}
@@ -384,6 +684,169 @@ export default function ProductDetail() {
                 </div>
               </div>
 
+              {/* Variant selector */}
+              {productHasVariants && colorVariantPicker && (
+                <div className="space-y-4 pt-2">
+                  {dualVariantPicker && (
+                  <div className="space-y-2">
+                    <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest font-mono">
+                      {dualVariantMode === "lure" ? "Vikt" : "Storlek"}
+                      {dualVariantMode === "lure" && selectedWeight != null && (
+                        <span className="text-emerald-800 normal-case tracking-normal font-bold ml-2">
+                          — {selectedWeight}g
+                        </span>
+                      )}
+                      {dualVariantMode === "clothing" && selectedSize && (
+                        <span className="text-emerald-800 normal-case tracking-normal font-bold ml-2">
+                          — {selectedSize}
+                        </span>
+                      )}
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {dualVariantMode === "lure"
+                        ? lureWeights.map((w) => {
+                            const hasStock = (product.variants ?? []).some(
+                              (v) => v.weightGrams === w && v.stock > 0
+                            );
+                            const isSelected = selectedWeight === w;
+                            return (
+                              <button
+                                key={w}
+                                type="button"
+                                disabled={!hasStock}
+                                onClick={() => selectLureWeight(w)}
+                                className={`min-w-[3rem] px-3.5 py-2 rounded-xl text-xs font-black border transition-all ${
+                                  !hasStock
+                                    ? "border-slate-100 bg-slate-50 text-slate-300 line-through cursor-not-allowed"
+                                    : isSelected
+                                      ? "border-[#0b2942] bg-[#0b2942] text-white shadow-md"
+                                      : "border-slate-200 bg-white text-slate-700 hover:border-emerald-800/30 hover:bg-emerald-50/50"
+                                }`}
+                              >
+                                {w}g
+                              </button>
+                            );
+                          })
+                        : clothingSizes.map((size) => {
+                            const hasStock = (product.variants ?? []).some(
+                              (v) => v.size === size && v.stock > 0
+                            );
+                            const isSelected = selectedSize === size;
+                            return (
+                              <button
+                                key={size}
+                                type="button"
+                                disabled={!hasStock}
+                                onClick={() => selectClothingSize(size)}
+                                className={`min-w-[3rem] px-3.5 py-2 rounded-xl text-xs font-black border transition-all ${
+                                  !hasStock
+                                    ? "border-slate-100 bg-slate-50 text-slate-300 line-through cursor-not-allowed"
+                                    : isSelected
+                                      ? "border-[#0b2942] bg-[#0b2942] text-white shadow-md"
+                                      : "border-slate-200 bg-white text-slate-700 hover:border-emerald-800/30 hover:bg-emerald-50/50"
+                                }`}
+                              >
+                                {size}
+                              </button>
+                            );
+                          })}
+                    </div>
+                  </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest font-mono">
+                      Färg
+                      {colorTouched && selectedColor && (
+                        <span className="text-emerald-800 normal-case tracking-normal font-bold ml-2">
+                          — {selectedColor}
+                        </span>
+                      )}
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {colorOptions.map((variant) => {
+                        const isSelected =
+                          colorTouched &&
+                          selectedColor != null &&
+                          variant.color != null &&
+                          colorsMatch(selectedColor, variant.color);
+                        const outOfStock = variant.stock <= 0;
+                        return (
+                          <button
+                            key={variant.id}
+                            type="button"
+                            disabled={outOfStock}
+                            onClick={() => variant.color && selectVariantColor(variant.color)}
+                            className={`px-3.5 py-2 rounded-xl text-xs font-black border transition-all ${
+                              outOfStock
+                                ? "border-slate-100 bg-slate-50 text-slate-300 line-through cursor-not-allowed"
+                                : isSelected
+                                  ? "border-[#0b2942] bg-[#0b2942] text-white shadow-md"
+                                  : "border-slate-200 bg-white text-slate-700 hover:border-emerald-800/30 hover:bg-emerald-50/50"
+                            }`}
+                          >
+                            {variant.color}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {variantError && (
+                    <p className="text-[10px] font-bold text-red-600">
+                      {dualVariantPicker
+                        ? `Välj ${dualVariantMode === "lure" ? "vikt och färg" : "storlek och färg"} innan du lägger i varukorgen.`
+                        : "Välj färg innan du lägger i varukorgen."}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {productHasVariants && !colorVariantPicker && (
+                <div className="space-y-2 pt-2">
+                  <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest font-mono">
+                    {variantLabel}
+                    {selectedVariant && (
+                      <span className="text-emerald-800 normal-case tracking-normal font-bold ml-2">
+                        — {selectedVariant.label}
+                      </span>
+                    )}
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    {product.variants?.map((variant) => {
+                      const isSelected = selectedVariant?.id === variant.id;
+                      const outOfStock = variant.stock <= 0;
+                      return (
+                        <button
+                          key={variant.id}
+                          type="button"
+                          disabled={outOfStock}
+                          onClick={() => {
+                            setSelectedVariant(variant);
+                            setVariantError(false);
+                            setQty(1);
+                          }}
+                          className={`min-w-[3rem] px-3.5 py-2 rounded-xl text-xs font-black border transition-all ${
+                            outOfStock
+                              ? "border-slate-100 bg-slate-50 text-slate-300 line-through cursor-not-allowed"
+                              : isSelected
+                                ? "border-[#0b2942] bg-[#0b2942] text-white shadow-md"
+                                : "border-slate-200 bg-white text-slate-700 hover:border-emerald-800/30 hover:bg-emerald-50/50"
+                          }`}
+                        >
+                          {variant.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {variantError && (
+                    <p className="text-[10px] font-bold text-red-600">
+                      Välj {variantLabel.toLowerCase()} innan du lägger i varukorgen.
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Add to Cart Controls with Qty Selector and exact horizontal outline design from image */}
               <div className="pt-4 border-t border-slate-100">
                 <div className="flex items-center space-x-3">
@@ -392,7 +855,7 @@ export default function ProductDetail() {
                   <div className="flex items-center bg-white border border-slate-200 shadow-sm rounded-xl p-1 h-14">
                     <button
                       type="button"
-                      disabled={product.stock <= 0}
+                      disabled={availableStock <= 0}
                       onClick={() => setQty(Math.max(1, qty - 1))}
                       className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-emerald-800 disabled:text-slate-200 transition-colors font-bold rounded-lg active:scale-90 hover:bg-slate-50 cursor-pointer"
                     >
@@ -403,8 +866,8 @@ export default function ProductDetail() {
                     </span>
                     <button
                       type="button"
-                      disabled={product.stock <= 0}
-                      onClick={() => setQty(qty + 1)}
+                      disabled={availableStock <= 0 || qty >= availableStock}
+                      onClick={() => setQty(Math.min(availableStock, qty + 1))}
                       className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-emerald-800 disabled:text-slate-200 transition-colors font-bold rounded-lg active:scale-90 hover:bg-slate-50 cursor-pointer"
                     >
                       <Plus className="h-3.5 w-3.5" />
@@ -413,7 +876,7 @@ export default function ProductDetail() {
 
                   {/* Add to varukorg action */}
                   <button
-                    disabled={product.stock <= 0}
+                    disabled={availableStock <= 0 || (productHasVariants && !selectedVariant)}
                     onClick={handleAddToCart}
                     className={`flex-grow h-14 rounded-xl flex items-center justify-center space-x-2 transition-all shadow-md active:scale-98 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed cursor-pointer ${
                       isAdded 
@@ -430,10 +893,11 @@ export default function ProductDetail() {
                 <div className="flex items-center space-x-1.5 text-[10px] font-mono text-emerald-800 font-semibold opacity-90 mt-4 select-none">
                   <Check className="h-3.5 w-3.5 stroke-[3]" />
                   <span>
-                    {product.stock > 0 
-                      ? `I lager` 
-                      : "Slutsåld (kontakta kundtjänst för info)"
-                    }
+                    {availableStock > 0
+                      ? selectedVariant
+                        ? `${variantDisplayText(product, selectedVariant)} · ${availableStock} kvar`
+                        : "I lager"
+                      : "Slutsåld (kontakta kundtjänst för info)"}
                   </span>
                 </div>
               </div>
@@ -460,8 +924,8 @@ export default function ProductDetail() {
         </div>
 
         {/* Related Products Section */}
-        {relatedProducts.length > 0 && (
-          <div className="mt-24 pt-16 border-t border-slate-200/60 animate-fade-in">
+        {product && (relatedLoading || relatedProducts.length > 0) && (
+          <div className="mt-24 pt-16 border-t border-slate-200/60">
             <div className="text-center md:text-left md:flex justify-between items-end mb-10">
               <div className="space-y-2">
                 <span className="text-[10px] font-black uppercase tracking-widest text-[#0e2c22] font-mono bg-emerald-50 px-3.5 py-1.5 rounded-full border border-emerald-100 font-mono">Utvalda tips</span>
@@ -476,6 +940,27 @@ export default function ProductDetail() {
               </Link>
             </div>
 
+            {relatedLoading && relatedProducts.length === 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="bg-white rounded-[2rem] border border-slate-200/60 overflow-hidden animate-pulse"
+                  >
+                    <div className="aspect-square bg-slate-200" />
+                    <div className="p-6 space-y-3">
+                      <div className="h-3 bg-slate-200 rounded w-1/3" />
+                      <div className="h-4 bg-slate-200 rounded w-3/4" />
+                      <div className="h-3 bg-slate-100 rounded w-full" />
+                      <div className="pt-2 border-t border-slate-100 flex justify-between">
+                        <div className="h-5 bg-slate-200 rounded w-16" />
+                        <div className="h-10 w-10 bg-slate-200 rounded-xl" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
               {relatedProducts.map((p) => (
                 <motion.div
@@ -483,18 +968,21 @@ export default function ProductDetail() {
                   whileHover={{ y: -6 }}
                   className="bg-white rounded-[2rem] border border-slate-200/60 shadow-sm overflow-hidden flex flex-col h-full group"
                 >
-                  <div className="relative aspect-square overflow-hidden bg-slate-50">
+                  <Link
+                    to={`/product/${p.id}`}
+                    className="relative aspect-square overflow-hidden bg-slate-50 block cursor-pointer"
+                  >
                     <img
-                      src={p.imageUrl}
+                      src={resolveImageUrl(p.imageUrl)}
                       alt={p.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 hover:scale-105 duration-700"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                     />
-                    <div className="absolute top-4 left-4">
+                    <div className="absolute top-4 left-4 pointer-events-none">
                       <span className="text-[10px] font-black uppercase tracking-wider bg-white/95 text-[#071a13] px-3 py-1 rounded-full border border-slate-100 shadow-sm font-mono">
                         {p.category}
                       </span>
                     </div>
-                  </div>
+                  </Link>
                   <div className="p-6 flex flex-col flex-grow justify-between space-y-4">
                     <div>
                       <h3 className="font-extrabold text-[#071a13] text-sm uppercase tracking-tight line-clamp-1 group-hover:text-amber-500 transition-colors">
@@ -508,9 +996,9 @@ export default function ProductDetail() {
                     <div className="flex items-center justify-between pt-2 border-t border-slate-100">
                       <span className="font-mono font-black text-sm text-slate-900">{p.price} SEK_</span>
                       <button
-                        onClick={() => addToCart(p)}
+                        onClick={() => handleRelatedAdd(p)}
                         className="p-3 bg-[#0b231a] text-amber-400 group-hover:bg-amber-500 group-hover:text-slate-950 rounded-xl transition-all shadow-md cursor-pointer"
-                        title="Lägg i varukorg"
+                        title={hasVariants(p) ? "Välj storlek" : "Lägg i varukorg"}
                       >
                         <ShoppingCart className="h-4 w-4" />
                       </button>
@@ -519,6 +1007,7 @@ export default function ProductDetail() {
                 </motion.div>
               ))}
             </div>
+            )}
           </div>
         )}
 

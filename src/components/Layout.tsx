@@ -1,4 +1,4 @@
-import { ReactNode, useState, FormEvent } from "react";
+import { ReactNode, useState, FormEvent, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   ShoppingCart,
@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useCart } from "../hooks/useCart";
+import { useFavorites } from "../hooks/useFavorites";
+import CartDrawer from "./CartDrawer";
 
 interface LayoutProps {
   children: ReactNode;
@@ -33,7 +35,12 @@ export default function Layout({ children }: LayoutProps) {
   const [searchInput, setSearchInput] = useState("");
   const location = useLocation();
   const navigate = useNavigate();
-  const { totalItems, totalPrice } = useCart();
+  const { totalItems, totalPrice, openCart, closeCart } = useCart();
+  const { totalFavorites } = useFavorites();
+
+  useEffect(() => {
+    closeCart();
+  }, [location.pathname, closeCart]);
 
   const isAdminRoute = location.pathname.startsWith("/admin");
   if (isAdminRoute) {
@@ -122,36 +129,54 @@ export default function Layout({ children }: LayoutProps) {
                 <span className="text-[11px] font-bold tracking-wider uppercase hidden lg:inline-block">Mitt konto</span>
               </Link>
 
+              <Link
+                to="/favorites"
+                className="hidden sm:flex items-center space-x-1.5 hover:text-[#70aed3] transition-colors py-1 group"
+                aria-label={totalFavorites > 0 ? `Favoriter (${totalFavorites})` : "Favoriter"}
+              >
+                <div className="relative shrink-0">
+                  <Heart className="h-5 w-5 stroke-[1.8] text-[#486581] group-hover:text-[#70aed3] transition-colors" />
+                  <span
+                    className={`absolute -top-2 -right-2 bg-red-500 text-white text-[9px] font-black rounded-full h-4 min-w-4 px-0.5 flex items-center justify-center pointer-events-none transition-opacity ${
+                      totalFavorites > 0 ? "opacity-100" : "opacity-0"
+                    }`}
+                    aria-hidden={totalFavorites === 0}
+                  >
+                    {totalFavorites || 0}
+                  </span>
+                </div>
+                <span className="text-[11px] font-bold tracking-wider uppercase hidden lg:inline-block">Favoriter</span>
+              </Link>
+
               <button
                 type="button"
-                className="hidden sm:flex items-center space-x-1.5 hover:text-[#70aed3] transition-colors py-1 group relative"
-                aria-label="Favoriter"
-              >
-                <Heart className="h-5 w-5 stroke-[1.8] text-[#486581] group-hover:text-[#70aed3] transition-colors" />
-                <span className="text-[11px] font-bold tracking-wider uppercase hidden lg:inline-block">Favoriter</span>
-              </button>
-
-              <Link
-                to="/cart"
+                onClick={openCart}
                 className="flex items-center space-x-2 bg-[#f0f4f8] hover:bg-[#e1e8f0] px-3.5 py-2.5 rounded-full transition-all group"
+                aria-label={totalItems > 0 ? `Varukorg (${totalItems})` : "Varukorg"}
               >
-                <div className="relative">
+                <div className="relative shrink-0">
                   <ShoppingCart className="h-4.5 w-4.5 text-[#334e68] group-hover:text-[#70aed3]" />
-                  {totalItems > 0 && (
-                    <span className="absolute -top-2 -right-2 bg-[#70aed3] text-white text-[9px] font-black rounded-full h-4 w-4 flex items-center justify-center">
-                      {totalItems}
-                    </span>
-                  )}
+                  <span
+                    className={`absolute -top-2 -right-2 bg-[#70aed3] text-white text-[9px] font-black rounded-full h-4 min-w-4 px-0.5 flex items-center justify-center pointer-events-none transition-opacity ${
+                      totalItems > 0 ? "opacity-100" : "opacity-0"
+                    }`}
+                    aria-hidden={totalItems === 0}
+                  >
+                    {totalItems || 0}
+                  </span>
                 </div>
                 <span className="text-[11px] font-bold tracking-wider uppercase text-[#334e68] hidden sm:inline">
                   Varukorg
                 </span>
-                {totalItems > 0 && (
-                  <span className="hidden sm:inline bg-white px-2 py-0.5 rounded-full text-[10px] font-black text-[#70aed3] border border-slate-100">
-                    {totalPrice} kr
-                  </span>
-                )}
-              </Link>
+                <span
+                  className={`hidden sm:inline bg-white px-2 py-0.5 rounded-full text-[10px] font-black text-[#70aed3] border border-slate-100 transition-opacity ${
+                    totalItems > 0 ? "opacity-100" : "opacity-0"
+                  }`}
+                  aria-hidden={totalItems === 0}
+                >
+                  {totalPrice} kr
+                </span>
+              </button>
 
               <button
                 type="button"
@@ -250,12 +275,25 @@ export default function Layout({ children }: LayoutProps) {
               >
                 Rea
               </Link>
+              <Link
+                to="/favorites"
+                onClick={() => setIsMenuOpen(false)}
+                className="px-3 py-2.5 text-sm font-bold text-slate-700 hover:text-[#70aed3] hover:bg-[#f0f4f8] rounded-xl transition-all flex items-center justify-between"
+              >
+                <span>Favoriter</span>
+                {totalFavorites > 0 && (
+                  <span className="bg-red-500 text-white text-[10px] font-black rounded-full h-5 min-w-5 px-1 flex items-center justify-center">
+                    {totalFavorites}
+                  </span>
+                )}
+              </Link>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
       <main className="flex-grow">{children}</main>
+      <CartDrawer />
 
       {/* Footer */}
       <footer className="bg-[#0f2d4a] text-slate-300 border-t-4 border-[#70aed3]">

@@ -1,15 +1,16 @@
-import { useEffect, useState, FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { FormEvent, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   Check,
-  Heart,
   ShoppingCart,
   Star,
 } from "lucide-react";
-import { dbService } from "../services/db";
+import FavoriteButton from "../components/FavoriteButton";
 import { Product } from "../types";
 import { useCart } from "../hooks/useCart";
+import { useProductListing } from "../hooks/useProductListing";
+import { getProductStock, productRequiresVariantPick } from "../lib/variants";
 import {
   resolveImageUrl,
   publicImagePath,
@@ -61,24 +62,19 @@ function pseudoRating(id: string) {
 }
 
 export default function Home() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { products: allProducts, loading } = useProductListing();
+  const products = allProducts.slice(0, 6);
   const [newsletterEmail, setNewsletterEmail] = useState("");
+  const navigate = useNavigate();
   const { addToCart } = useCart();
 
-  useEffect(() => {
-    async function loadProducts() {
-      try {
-        const prod = await dbService.getProducts();
-        setProducts(prod.filter((p) => p.isActive !== false).slice(0, 6));
-      } catch (err) {
-        console.error("Failed to load products for home:", err);
-      } finally {
-        setLoading(false);
-      }
+  const handleQuickAdd = (product: Product) => {
+    if (productRequiresVariantPick(product)) {
+      navigate(`/product/${product.id}`);
+      return;
     }
-    loadProducts();
-  }, []);
+    addToCart(product);
+  };
 
   const handleNewsletter = (e: FormEvent) => {
     e.preventDefault();
@@ -178,9 +174,25 @@ export default function Home() {
             </Link>
           </div>
 
-          {loading ? (
-            <div className="flex justify-center items-center h-64">
-              <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#70aed3] border-t-transparent" />
+          {loading && products.length === 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="bg-slate-50 rounded-[2.2rem] overflow-hidden border border-slate-200/60 animate-pulse"
+                >
+                  <div className="aspect-square bg-slate-200" />
+                  <div className="p-6 space-y-3 bg-white">
+                    <div className="h-3 bg-slate-200 rounded w-1/3" />
+                    <div className="h-4 bg-slate-200 rounded w-3/4" />
+                    <div className="h-3 bg-slate-100 rounded w-full" />
+                    <div className="pt-4 border-t border-slate-100 flex justify-between">
+                      <div className="h-6 bg-slate-200 rounded w-16" />
+                      <div className="h-10 w-10 bg-slate-200 rounded-2xl" />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
@@ -191,13 +203,7 @@ export default function Home() {
                     key={p.id}
                     className="bg-slate-50 rounded-[2.2rem] overflow-hidden border border-slate-200/60 shadow-sm hover:shadow-xl transition-all group flex flex-col h-full relative"
                   >
-                    <button
-                      type="button"
-                      className="absolute top-4 right-4 text-slate-400 hover:text-[#70aed3] active:scale-95 transition-all z-20 bg-white/80 backdrop-blur-sm p-2.5 rounded-full shadow-sm"
-                      aria-label="Lägg till favorit"
-                    >
-                      <Heart className="h-4.5 w-4.5 stroke-[2]" />
-                    </button>
+                    <FavoriteButton product={p} />
 
                     <Link to={`/product/${p.id}`} className="relative aspect-square overflow-hidden bg-slate-100 block">
                       <img
@@ -245,9 +251,10 @@ export default function Home() {
                         </div>
                         <button
                           type="button"
-                          onClick={() => addToCart(p)}
-                          disabled={p.stock <= 0}
+                          onClick={() => handleQuickAdd(p)}
+                          disabled={getProductStock(p) <= 0}
                           className="bg-[#0f2d4a] text-white p-3 rounded-2xl hover:bg-[#70aed3] disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed transition-all transform active:scale-95 shadow-md flex items-center justify-center cursor-pointer"
+                          title={productRequiresVariantPick(p) ? "Välj storlek" : "Lägg i varukorg"}
                         >
                           <ShoppingCart className="h-4.5 w-4.5" />
                         </button>

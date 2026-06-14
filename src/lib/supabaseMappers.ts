@@ -1,5 +1,6 @@
 import { DiscountCode, Order, Product, ReturnRequest } from "../types";
 import { resolveImageUrl, resolveImageUrls } from "./images";
+import { normalizeVariants } from "./variants";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -42,7 +43,73 @@ export function productFromRow(row: any): Product {
     tags: row.tags ?? undefined,
     isActive: row.is_active ?? true,
     isFeatured: row.is_featured ?? false,
+    variantLabel: row.variant_label ?? undefined,
+    variants: normalizeVariants(row.variants),
   };
+}
+
+/** Butikslistor — utan image_urls, variantbilder och tung variants-json. */
+export function productListingFromRow(row: any): Product {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description ?? "",
+    price: Number(row.price),
+    imageUrl: resolveImageUrl(row.image_url ?? ""),
+    stock: row.stock ?? 0,
+    category: row.category ?? "Beten",
+    createdAt: row.created_at,
+    isActive: row.is_active ?? true,
+    isFeatured: row.is_featured ?? false,
+    variantLabel: row.variant_label ?? undefined,
+  };
+}
+
+export function productMediaFromRow(row: any): { imageUrls: string[] } {
+  return {
+    imageUrls: normalizeImageUrls(row.image_urls),
+  };
+}
+
+export function productVariantsFromRow(row: any): {
+  variants: Product["variants"];
+  variantLabel?: string;
+} {
+  const variants = normalizeVariants(row.variants)?.map(({ imageUrl: _imageUrl, ...variant }) => variant);
+  return {
+    variants,
+    variantLabel: row.variant_label ?? undefined,
+  };
+}
+
+export function stripProductForListing(product: Product): Product {
+  return {
+    ...product,
+    imageUrls: undefined,
+    variants: product.variants?.map(({ imageUrl: _imageUrl, ...variant }) => variant),
+  };
+}
+
+export function mergeProductMedia(
+  product: Product,
+  media: { imageUrls: string[] },
+  variantImages?: Map<string, string>
+): Product {
+  const variants = product.variants?.map((v) => {
+    const imageUrl = variantImages?.get(v.id);
+    return imageUrl ? { ...v, imageUrl } : v;
+  });
+
+  return {
+    ...product,
+    imageUrls: media.imageUrls.length ? media.imageUrls : product.imageUrls,
+    variants: variants ?? product.variants,
+  };
+}
+
+/** Produktdata utan galleri/variantbilder — snabb första render. */
+export function productDetailCoreFromRow(row: any): Product {
+  return stripProductForListing(productFromRow({ ...row, image_urls: null }));
 }
 
 export function productToRow(product: Partial<Product>): Record<string, unknown> {
@@ -69,6 +136,8 @@ export function productToRow(product: Partial<Product>): Record<string, unknown>
   if (product.tags !== undefined) row.tags = product.tags;
   if (product.isActive !== undefined) row.is_active = product.isActive;
   if (product.isFeatured !== undefined) row.is_featured = product.isFeatured;
+  if (product.variantLabel !== undefined) row.variant_label = product.variantLabel || null;
+  if (product.variants !== undefined) row.variants = product.variants;
   return row;
 }
 
