@@ -1,6 +1,7 @@
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from "react";
 import { CartItem, Product, ProductVariant } from "../types";
 import { cartLineId, getProductStock, hasVariants } from "../lib/variants";
+import { buildCartLine, loadCartFromStorage, saveCartToStorage } from "../lib/cartStorage";
 
 interface AddToCartOptions {
   variant?: ProductVariant;
@@ -22,22 +23,12 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
-function normalizeStoredCart(raw: CartItem[]): CartItem[] {
-  return raw.map((item) => ({
-    ...item,
-    cartLineId: item.cartLineId || item.id,
-  }));
-}
-
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [cart, setCart] = useState<CartItem[]>(() => {
-    const saved = localStorage.getItem("fishing_cart");
-    return saved ? normalizeStoredCart(JSON.parse(saved)) : [];
-  });
+  const [cart, setCart] = useState<CartItem[]>(() => loadCartFromStorage());
   const [isCartOpen, setIsCartOpen] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem("fishing_cart", JSON.stringify(cart));
+    saveCartToStorage(cart);
   }, [cart]);
 
   const addToCart = (product: Product, options?: AddToCartOptions) => {
@@ -61,14 +52,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
         );
       }
 
-      const line: CartItem = {
-        ...product,
-        imageUrl: variant?.imageUrl || product.imageUrl,
-        stock: availableStock,
-        quantity: Math.min(qty, availableStock),
-        cartLineId: lineId,
-        selectedVariant: variant,
-      };
+      const line = buildCartLine(
+        product,
+        lineId,
+        Math.min(qty, availableStock),
+        availableStock,
+        variant
+      );
       return [...prev, line];
     });
   };
