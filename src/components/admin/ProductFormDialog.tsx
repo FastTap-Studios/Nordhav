@@ -619,7 +619,7 @@ export default function ProductFormDialog({ open, product, onClose, onSave }: Pr
             />
           </div>
           <div>
-            <FieldLabel>Målarter (kommaseparerade)</FieldLabel>
+            <FieldLabel>Målarter (valfritt)</FieldLabel>
             <AdminInput
               value={(form.speciesTarget || []).join(", ")}
               onChange={(e) =>
@@ -633,6 +633,9 @@ export default function ProductFormDialog({ open, product, onClose, onSave }: Pr
               }
               placeholder="Gädda, Abborre, Öring"
             />
+            <p className="text-[11px] text-muted-foreground mt-1.5">
+              Visas som taggar under MÅLART i butiken. Lämna tomt för att dölja sektionen.
+            </p>
           </div>
         </div>
 

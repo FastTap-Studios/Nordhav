@@ -66,13 +66,11 @@ function getProductSpecs(product: Product): {
 
   let categoryLabel = "PREMIUM REDSKAP";
   let specs: ProductSpec[] = [];
-  let targetSpecies: string[] = ["Gädda", "Abborre"]; // Default target species
 
   const category = product.category;
 
   if (category === "Beten") {
     categoryLabel = product.id === "prod-1" ? "YTVATTEN  /  JERKBAIT" : "KUSTEN  /  SPINNARE";
-    targetSpecies = product.id === "prod-1" ? ["Gädda", "Abborre", "Gös"] : ["Havsöring", "Regnbåge"];
     specs = [
       { label: "VIKT", value: product.id === "prod-1" ? "28g" : "18g", icon: Weight },
       { label: "LÄNGD", value: product.id === "prod-1" ? "110mm" : "85mm", icon: Ruler },
@@ -81,7 +79,6 @@ function getProductSpecs(product: Product): {
     ];
   } else if (category === "Spön") {
     categoryLabel = "KOLFIBERSPÖ  /  PREDATOR";
-    targetSpecies = ["Gädda", "Abborre", "Gös"];
     specs = [
       { label: "VIKT", value: "115g", icon: Weight },
       { label: "LÄNGD", value: "8 fot (240cm)", icon: Ruler },
@@ -90,7 +87,6 @@ function getProductSpecs(product: Product): {
     ];
   } else if (category === "Rullar") {
     categoryLabel = "HASPELRULLE  /  PRECISION";
-    targetSpecies = ["Abborre", "Öring", "Lax"];
     specs = [
       { label: "VIKT", value: "235g", icon: Weight },
       { label: "UTVÄXLING", value: "6.2:1", icon: Zap },
@@ -99,7 +95,6 @@ function getProductSpecs(product: Product): {
     ];
   } else if (category === "Fiskekläder") {
     categoryLabel = "ALLWEATHER  /  OUTDOOR";
-    targetSpecies = ["Kustfiske", "Båtfiske", "Flugfiske"];
     specs = [
       { label: "VIKT", value: "680g", icon: Weight },
       { label: "VATTENPELARE", value: "20 000 mm", icon: Droplet },
@@ -108,7 +103,6 @@ function getProductSpecs(product: Product): {
     ];
   } else if (category === "Tillbehör") {
     categoryLabel = "FÖRVARING  /  ACCESSORIES";
-    targetSpecies = ["Organisering", "Säkerhet", "Catch & Release"];
     specs = [
       { label: "VIKT", value: product.id === "prod-7" ? "350g" : "280g", icon: Weight },
       { label: "STORLEK", value: product.id === "prod-7" ? "32x22x5 cm" : "55cm ram", icon: Ruler },
@@ -126,6 +120,10 @@ function getProductSpecs(product: Product): {
       { label: "GARANTI", value: "2 år", icon: Shield }
     ];
   }
+
+  const targetSpecies = (product.speciesTarget ?? [])
+    .map((item) => item.trim())
+    .filter(Boolean);
 
   return { categoryLabel, sku, discountMessage, specs, targetSpecies };
 }
@@ -413,10 +411,38 @@ export default function ProductDetail() {
       ? resolveImageUrl(resolvedColorImage)
       : dualThumbnails[selectedImageIndex]?.url ?? dualThumbnails[0]?.url ?? defaultProductImage
     : galleryImages[selectedImageIndex] || defaultProductImage;
+  const totalStock = getProductStock(product);
+  const variantLabel = product.variantLabel || (product.category === "Beten" ? "Vikt" : "Storlek");
   const availableStock = productHasVariants
     ? selectedVariant?.stock ?? 0
-    : getProductStock(product);
-  const variantLabel = product.variantLabel || (product.category === "Beten" ? "Vikt" : "Storlek");
+    : totalStock;
+  const needsVariantSelection = productHasVariants && !selectedVariant;
+  const stockIndicator = (() => {
+    if (needsVariantSelection) {
+      if (totalStock > 0) {
+        return {
+          text: `I lager — välj ${variantLabel.toLowerCase()}`,
+          tone: "available" as const,
+        };
+      }
+      return {
+        text: "Slutsåld (kontakta kundtjänst för info)",
+        tone: "soldOut" as const,
+      };
+    }
+    if (availableStock > 0) {
+      return {
+        text: selectedVariant
+          ? `${variantDisplayText(product, selectedVariant)} · ${availableStock} kvar`
+          : "I lager",
+        tone: "available" as const,
+      };
+    }
+    return {
+      text: "Slutsåld (kontakta kundtjänst för info)",
+      tone: "soldOut" as const,
+    };
+  })();
   const lineId = cartLineId(product.id, selectedVariant?.id);
 
   const selectLureWeight = (weightGrams: number) => {
@@ -680,22 +706,24 @@ export default function ProductDetail() {
                 })}
               </div>
 
-              {/* Target species - "MÅLART" */}
-              <div className="space-y-2 pt-2">
-                <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest font-mono">
-                  MÅLART
-                </span>
-                <div className="flex flex-wrap gap-2">
-                  {targetSpecies.map((target) => (
-                    <span
-                      key={target}
-                      className="bg-slate-100 text-slate-600 text-[10px] font-extrabold tracking-normal px-3.5 py-1.5 rounded-lg border border-slate-200/40 hover:bg-slate-200/60 transition-colors cursor-default"
-                    >
-                      {target}
-                    </span>
-                  ))}
+              {/* Target species - "MÅLART" (valfritt, styrs i admin) */}
+              {targetSpecies.length > 0 && (
+                <div className="space-y-2 pt-2">
+                  <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest font-mono">
+                    MÅLART
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    {targetSpecies.map((target) => (
+                      <span
+                        key={target}
+                        className="bg-slate-100 text-slate-600 text-[10px] font-extrabold tracking-normal px-3.5 py-1.5 rounded-lg border border-slate-200/40 hover:bg-slate-200/60 transition-colors cursor-default"
+                      >
+                        {target}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Variant selector */}
               {productHasVariants && colorVariantPicker && (
@@ -903,15 +931,13 @@ export default function ProductDetail() {
                 </div>
 
                 {/* Stock Indicator checkmark below - exact detail match */}
-                <div className="flex items-center space-x-1.5 text-[10px] font-mono text-emerald-800 font-semibold opacity-90 mt-4 select-none">
+                <div
+                  className={`flex items-center space-x-1.5 text-[10px] font-mono font-semibold opacity-90 mt-4 select-none ${
+                    stockIndicator.tone === "soldOut" ? "text-slate-400" : "text-emerald-800"
+                  }`}
+                >
                   <Check className="h-3.5 w-3.5 stroke-[3]" />
-                  <span>
-                    {availableStock > 0
-                      ? selectedVariant
-                        ? `${variantDisplayText(product, selectedVariant)} · ${availableStock} kvar`
-                        : "I lager"
-                      : "Slutsåld (kontakta kundtjänst för info)"}
-                  </span>
+                  <span>{stockIndicator.text}</span>
                 </div>
               </div>
 
