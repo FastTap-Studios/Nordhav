@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { AiDescriptionTheme, Product, ShopSettings } from "../../types";
-import { Sparkles, Loader2, Upload, X, ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
+import { Sparkles, Loader2, Upload, X, ChevronLeft, ChevronRight, GripVertical, Wand2 } from "lucide-react";
 import AdminDialog, { AdminInput, AdminSelect, AdminTextarea, FieldLabel } from "./AdminDialog";
 import ProductVariantEditor, { prepareProductVariants } from "./ProductVariantEditor";
 import { categoryUsesVariants, defaultVariantLabel, hasVariants } from "../../lib/variants";
@@ -10,6 +10,7 @@ import { getVariantMode } from "../../lib/categories";
 import { useToast } from "./Toast";
 import { useCategories } from "../../hooks/useCategories";
 import { shopSettingsService } from "../../services/shopSettings";
+import type { ProductDescriptionAiMode } from "../../lib/generateProductInfo";
 
 const CATEGORIES_FALLBACK = ["Beten", "Spön", "Rullar", "Fiskekläder", "Tillbehör"];
 const AI_THEMES: AiDescriptionTheme[] = ["fishing", "generic", "custom"];
@@ -60,6 +61,7 @@ export default function ProductFormDialog({ open, product, onClose, onSave }: Pr
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [aiAction, setAiAction] = useState<ProductDescriptionAiMode | null>(null);
   const [aiConfigured, setAiConfigured] = useState<boolean | null>(null);
   const [aiSettings, setAiSettings] = useState<ShopSettings>(shopSettingsService.getCached());
   const aiSettingsRef = useRef<ShopSettings>(shopSettingsService.getCached());
@@ -191,11 +193,17 @@ export default function ProductFormDialog({ open, product, onClose, onSave }: Pr
     syncPrimaryImage(next);
   };
 
-  const handleGenerateDescription = async () => {
-    if (!form.name?.trim() || !form.category) {
+  const requestAiDescription = async (mode: ProductDescriptionAiMode) => {
+    if (mode === "improve") {
+      if (!form.description?.trim()) {
+        toast("Skriv en beskrivning först som AI kan förbättra.", "error");
+        return;
+      }
+    } else if (!form.name?.trim() || !form.category) {
       toast("Ange produktnamn och kategori först.", "error");
       return;
     }
+
     if (aiConfigured === false) {
       toast(
         "AI är inte konfigurerad. Lokal: GEMINI_API_KEY i .env. Produktion: Cloudflare Pages Secret GEMINI_API_KEY.",
@@ -203,26 +211,45 @@ export default function ProductFormDialog({ open, product, onClose, onSave }: Pr
       );
       return;
     }
-    if (aiSettingsRef.current.aiDescriptionTheme === "custom" && !aiSettingsRef.current.aiDescriptionCustomPrompt?.trim()) {
+    if (
+      mode === "generate" &&
+      aiSettingsRef.current.aiDescriptionTheme === "custom" &&
+      !aiSettingsRef.current.aiDescriptionCustomPrompt?.trim()
+    ) {
       toast("Skriv egna AI-instruktioner eller välj ett annat tema.", "error");
       return;
     }
+
     const settings = aiSettingsRef.current;
-    const categoryVariantMode = getVariantMode(form.category);
+    const categoryVariantMode = form.category ? getVariantMode(form.category) : undefined;
     setIsGenerating(true);
+    setAiAction(mode);
     try {
       const res = await fetch("/api/generate-product-info", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: form.name.trim(),
-          category: form.category,
-          categoryVariantMode,
-          aiDescriptionTheme: settings.aiDescriptionTheme,
-          aiDescriptionCustomPrompt: settings.aiDescriptionCustomPrompt,
-        }),
+        body: JSON.stringify(
+          mode === "improve"
+            ? {
+                mode: "improve",
+                existingDescription: form.description?.trim(),
+              }
+            : {
+                mode: "generate",
+                title: form.name?.trim(),
+                category: form.category,
+                categoryVariantMode,
+                aiDescriptionTheme: settings.aiDescriptionTheme,
+                aiDescriptionCustomPrompt: settings.aiDescriptionCustomPrompt,
+              }
+        ),
       });
-      const data = (await res.json()) as { description?: string; error?: string; themeUsed?: string };
+      const data = (await res.json()) as {
+        description?: string;
+        error?: string;
+        themeUsed?: string;
+        mode?: ProductDescriptionAiMode;
+      };
       if (!res.ok) {
         toast(data.error || "Kunde inte generera beskrivning.", "error");
         return;
@@ -232,6 +259,10 @@ export default function ProductFormDialog({ open, product, onClose, onSave }: Pr
         return;
       }
       set("description", data.description);
+      if (mode === "improve") {
+        toast("Beskrivning förbättrad med AI.");
+        return;
+      }
       toast(
         data.themeUsed === "fishing"
           ? "Beskrivning genererad (fisketema)."
@@ -242,8 +273,12 @@ export default function ProductFormDialog({ open, product, onClose, onSave }: Pr
       toast("Nätverksfel — kunde inte nå AI-tjänsten.", "error");
     } finally {
       setIsGenerating(false);
+      setAiAction(null);
     }
   };
+
+  const handleGenerateDescription = () => void requestAiDescription("generate");
+  const handleImproveDescription = () => void requestAiDescription("improve");
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -424,11 +459,25 @@ export default function ProductFormDialog({ open, product, onClose, onSave }: Pr
               </AdminSelect>
               <button
                 type="button"
+                onClick={handleImproveDescription}
+                disabled={!form.description?.trim() || isGenerating}
+                title={form.description?.trim() ? "Förbättra befintlig text" : "Skriv en beskrivning först"}
+                className="text-[10px] font-mono text-primary uppercase flex items-center hover:opacity-80 disabled:opacity-50 whitespace-nowrap"
+              >
+                {isGenerating && aiAction === "improve" ? (
+                  <Loader2 className="animate-spin h-3 w-3 mr-1" />
+                ) : (
+                  <Wand2 className="h-3 w-3 mr-1" />
+                )}
+                AI-förbättra
+              </button>
+              <button
+                type="button"
                 onClick={handleGenerateDescription}
                 disabled={!form.name || isGenerating}
                 className="text-[10px] font-mono text-primary uppercase flex items-center hover:opacity-80 disabled:opacity-50 whitespace-nowrap"
               >
-                {isGenerating ? (
+                {isGenerating && aiAction === "generate" ? (
                   <Loader2 className="animate-spin h-3 w-3 mr-1" />
                 ) : (
                   <Sparkles className="h-3 w-3 mr-1" />

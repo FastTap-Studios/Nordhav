@@ -121,3 +121,22 @@ export function previewAiDescriptionPrompt(
 ): string {
   return buildAiDescriptionPrompt(sampleTitle, sampleCategory, settings, variantMode);
 }
+
+export function buildImproveDescriptionPrompt(existingDescription: string): string {
+  return `Förbättra och förfina följande produktbeskrivning på svenska.
+
+Befintlig text:
+"${existingDescription}"
+
+Uppgift:
+- Gör texten tydligare, mer professionell och välskriven.
+- Behåll samma fakta, budskap och inriktning.
+- Rätta stavning, grammatik och flyt.
+- Lägg inte till ny information som inte finns i texten.
+- Skriv om texten — kopiera den inte ordagrant.
+- Returnera bara den förbättrade beskrivningen, utan rubriker eller punktlistor.`;
+}
+
+export function improveDescriptionSystemInstruction(): string {
+  return "Du förbättrar befintliga produkttexter för e-handel. Behåll innebörden och faktan, gör språket mer professionellt. Lägg inte till ny information.";
+}

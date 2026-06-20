@@ -1,23 +1,30 @@
 import type { AiDescriptionTheme, CategoryVariantMode } from "../types";
 import {
   buildAiDescriptionPrompt,
+  buildImproveDescriptionPrompt,
   genericAiSystemInstruction,
+  improveDescriptionSystemInstruction,
   normalizeShopSettings,
   resolveEffectiveAiTheme,
 } from "./aiDescription";
 import { generateGeminiText } from "./geminiClient";
 
+export type ProductDescriptionAiMode = "generate" | "improve";
+
 export interface GenerateProductInfoInput {
+  mode?: unknown;
   title?: unknown;
   category?: unknown;
   categoryVariantMode?: unknown;
   aiDescriptionTheme?: unknown;
   aiDescriptionCustomPrompt?: unknown;
+  existingDescription?: unknown;
 }
 
 export interface GenerateProductInfoResult {
   description: string;
-  themeUsed: AiDescriptionTheme;
+  mode: ProductDescriptionAiMode;
+  themeUsed?: AiDescriptionTheme;
 }
 
 export class ProductInfoError extends Error {
@@ -30,6 +37,10 @@ export class ProductInfoError extends Error {
   }
 }
 
+function parseMode(value: unknown): ProductDescriptionAiMode {
+  return value === "improve" ? "improve" : "generate";
+}
+
 export async function generateProductDescription(
   input: GenerateProductInfoInput,
   config: { apiKey: string | null | undefined; model?: string; log?: boolean }
@@ -40,6 +51,28 @@ export async function generateProductDescription(
       "GEMINI_API_KEY saknas. Lägg till nyckeln i .env (lokal) eller Cloudflare Pages Secrets (produktion).",
       503
     );
+  }
+
+  const mode = parseMode(input.mode);
+  const existingDescription = String(input.existingDescription ?? "").trim();
+
+  if (mode === "improve") {
+    if (!existingDescription) {
+      throw new ProductInfoError("Skriv en beskrivning först som AI kan förbättra.", 400);
+    }
+
+    if (config.log) {
+      console.log("[AI] mode=improve (text polish only)");
+    }
+
+    const description = await generateGeminiText({
+      apiKey,
+      model: config.model,
+      prompt: buildImproveDescriptionPrompt(existingDescription),
+      systemInstruction: improveDescriptionSystemInstruction(),
+    });
+
+    return { description, mode };
   }
 
   const title = String(input.title ?? "").trim();
@@ -60,7 +93,9 @@ export async function generateProductDescription(
     effectiveTheme === "generic" ? genericAiSystemInstruction(category, variantMode) : undefined;
 
   if (config.log) {
-    console.log(`[AI] theme=${effectiveTheme} category="${category}" variant=${variantMode ?? "n/a"}`);
+    console.log(
+      `[AI] mode=generate theme=${effectiveTheme} category="${category}" variant=${variantMode ?? "n/a"}`
+    );
   }
 
   const description = await generateGeminiText({
@@ -70,5 +105,5 @@ export async function generateProductDescription(
     systemInstruction,
   });
 
-  return { description, themeUsed: effectiveTheme };
+  return { description, themeUsed: effectiveTheme, mode };
 }
