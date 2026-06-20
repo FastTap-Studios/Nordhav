@@ -8,6 +8,7 @@ import Layout from "./components/Layout";
 import ListingPrefetch from "./components/ListingPrefetch";
 import { CartProvider } from "./hooks/useCart";
 import { FavoritesProvider } from "./hooks/useFavorites";
+import { CategoriesProvider } from "./hooks/useCategories";
 import { AuthProvider } from "./hooks/useAuth";
 import { LanguageProvider } from "./hooks/useTranslation";
 import Home from "./pages/Home";
@@ -23,6 +24,7 @@ export default function App() {
     <Router>
       <LanguageProvider>
         <AuthProvider>
+          <CategoriesProvider>
           <CartProvider>
             <FavoritesProvider>
             <ListingPrefetch />
@@ -39,6 +41,7 @@ export default function App() {
           </Layout>
             </FavoritesProvider>
           </CartProvider>
+          </CategoriesProvider>
       </AuthProvider>
       </LanguageProvider>
     </Router>

@@ -9,6 +9,7 @@ import FavoriteButton from "../components/FavoriteButton";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { resolveImageUrl } from "../lib/images";
 import { getProductSaleInfo, isProductOnSale } from "../lib/pricing";
+import { useCategories } from "../hooks/useCategories";
 
 function ProductGridSkeleton({ count = 8 }: { count?: number }) {
   return (
@@ -40,6 +41,10 @@ export default function Shop() {
   const [searchTerm, setSearchTerm] = useState("");
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedCategory = searchParams.get("category") || "Alla";
+  const { shopFilterCategories } = useCategories();
+  const filterCategories = shopFilterCategories.length
+    ? shopFilterCategories.map((c) => c.name)
+    : ["Beten", "Spön", "Rullar", "Fiskekläder", "Tillbehör"];
   const saleOnly = searchParams.get("sale") === "true";
   const navigate = useNavigate();
   const { addToCart } = useCart();
@@ -120,7 +125,7 @@ export default function Shop() {
         {/* Categories filters styled as luxury filters */}
         <div className="flex items-center space-x-3 mb-12 overflow-x-auto pb-4 scrollbar-thin">
           <span className="text-xs font-black text-slate-400 uppercase tracking-widest font-mono hidden sm:inline-block mr-2">AVDELNING:</span>
-          {["Alla", "Beten", "Spön", "Rullar", "Fiskekläder", "Tillbehör"].map((cat) => (
+          {["Alla", ...filterCategories].map((cat) => (
             <button
               key={cat}
               onClick={() => handleCategorySelect(cat)}

@@ -117,9 +117,11 @@ function getProductSpecs(product: Product): {
     ];
   } else {
     categoryLabel = `${category.toUpperCase()}  /  NORDHAV`;
+    const stock = getProductStock(product);
+    const stockLabel = stock > 0 ? "I lager" : "Slut i lager";
     specs = [
       { label: "KATEGORI", value: category, icon: Box },
-      { label: "SKICK", value: "I Lager", icon: Check },
+      { label: "LAGER", value: stockLabel, icon: Check },
       { label: "RETUR", value: "30 dagar", icon: RotateCcw },
       { label: "GARANTI", value: "2 år", icon: Shield }
     ];

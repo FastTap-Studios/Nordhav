@@ -445,6 +445,24 @@ export const dbService = {
     }
   },
 
+  async renameProductCategory(oldName: string, newName: string): Promise<void> {
+    const sb = getSupabaseSafe();
+    if (!sb) {
+      setLocalProducts(
+        getLocalProducts().map((p) =>
+          p.category === oldName ? { ...p, category: newName } : p
+        )
+      );
+      return;
+    }
+
+    const { error } = await sb.from("products").update({ category: newName }).eq("category", oldName);
+    if (error) {
+      logSupabaseError("renameProductCategory", error);
+      throw new Error(error.message);
+    }
+  },
+
   async getOrders(): Promise<Order[]> {
     const sb = getSupabaseSafe();
     if (!sb) return getLocalOrders();

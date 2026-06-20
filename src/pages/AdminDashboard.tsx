@@ -14,6 +14,7 @@ import DiscountsView from "./admin/DiscountsView";
 import LogisticsView from "./admin/LogisticsView";
 import AnalyticsView from "./admin/AnalyticsView";
 import StaffView from "./admin/StaffView";
+import CategoriesView from "./admin/CategoriesView";
 import { ToastProvider } from "../components/admin/Toast";
 import { ShieldX } from "lucide-react";
 
@@ -213,6 +214,12 @@ export default function AdminDashboard() {
           />
           <Route path="orders" element={<OrdersView orders={orders} onUpdate={handleUpdateOrder} />} />
           <Route path="returns" element={<ReturnsView />} />
+          <Route
+            path="categories"
+            element={
+              <CategoriesView products={products} onProductsChanged={fetchData} />
+            }
+          />
           <Route path="discounts" element={<DiscountsView />} />
           <Route path="logistics" element={<LogisticsView />} />
           <Route path="analytics" element={<AnalyticsView products={products} orders={orders} />} />

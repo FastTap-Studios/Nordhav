@@ -15,22 +15,16 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { useCart } from "../hooks/useCart";
 import { useFavorites } from "../hooks/useFavorites";
+import { useCategories } from "../hooks/useCategories";
 import CartDrawer from "./CartDrawer";
 
 interface LayoutProps {
   children: ReactNode;
 }
 
-const categoryLinks = [
-  { name: "Beten", query: "Beten" },
-  { name: "Spön", query: "Spön" },
-  { name: "Rullar", query: "Rullar" },
-  { name: "Fiskekläder", query: "Fiskekläder" },
-  { name: "Tillbehör", query: "Tillbehör" },
-  { name: "Elektronik", query: "Tillbehör" },
-];
-
 export default function Layout({ children }: LayoutProps) {
+  const { navCategories } = useCategories();
+  const categoryLinks = navCategories.map((c) => ({ name: c.name, query: c.name }));
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchInput, setSearchInput] = useState("");
   const location = useLocation();

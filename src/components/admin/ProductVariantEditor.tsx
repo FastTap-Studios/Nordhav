@@ -6,6 +6,7 @@ import {
   totalVariantStock,
   variantPresetsForCategory,
 } from "../../lib/variants";
+import { getVariantMode } from "../../lib/categories";
 import BetenVariantEditor from "./BetenVariantEditor";
 import ClothingVariantEditor from "./ClothingVariantEditor";
 import { AdminInput, FieldLabel } from "./AdminDialog";
@@ -60,7 +61,7 @@ export default function ProductVariantEditor({
 
   if (!showSection) return null;
 
-  if (category === "Beten") {
+  if (getVariantMode(category) === "beten") {
     return (
       <BetenVariantEditor
         variants={variants}
@@ -71,7 +72,7 @@ export default function ProductVariantEditor({
     );
   }
 
-  if (category === "Fiskekläder") {
+  if (getVariantMode(category) === "clothing") {
     return (
       <ClothingVariantEditor
         variants={variants}
@@ -111,9 +112,9 @@ export default function ProductVariantEditor({
             <AdminInput
               id="new-variant-input"
               placeholder={
-                category === "Spön"
+                getVariantMode(category) === "rod"
                   ? "t.ex. 240cm"
-                  : category === "Rullar"
+                  : getVariantMode(category) === "reel"
                     ? "t.ex. 3000"
                     : "t.ex. M"
               }

@@ -1,4 +1,5 @@
 import { Product, ProductVariant } from "../types";
+import { categoryUsesVariantsByMode, getVariantMode } from "./categories";
 
 const CLOTHING_SIZES = ["XS", "S", "M", "L", "XL", "XXL", "3XL"];
 const ROD_LENGTHS = ["180cm", "210cm", "240cm", "270cm", "300cm"];
@@ -19,14 +20,14 @@ const CLOTHING_COLORS = ["Svart", "Grön", "Blå", "Grå", "Camo", "Oliv", "Mari
 const SIZE_ORDER = ["XS", "S", "M", "L", "XL", "XXL", "3XL"];
 
 export function defaultVariantLabel(category: string): string {
-  switch (category) {
-    case "Fiskekläder":
+  switch (getVariantMode(category)) {
+    case "clothing":
       return "Storlek";
-    case "Spön":
+    case "rod":
       return "Längd";
-    case "Rullar":
+    case "reel":
       return "Storlek";
-    case "Beten":
+    case "beten":
       return "Vikt";
     default:
       return "Variant";
@@ -34,14 +35,14 @@ export function defaultVariantLabel(category: string): string {
 }
 
 export function variantPresetsForCategory(category: string): string[] {
-  switch (category) {
-    case "Fiskekläder":
+  switch (getVariantMode(category)) {
+    case "clothing":
       return CLOTHING_SIZES;
-    case "Spön":
+    case "rod":
       return ROD_LENGTHS;
-    case "Rullar":
+    case "reel":
       return REEL_SIZES;
-    case "Beten":
+    case "beten":
       return LURE_WEIGHTS_GRAM.map((w) => `${w}g`);
     default:
       return [];
@@ -87,7 +88,7 @@ export function extractVariantColors(variants: ProductVariant[] | undefined): st
 export const extractLureColors = extractVariantColors;
 
 export function categoryUsesVariants(category: string): boolean {
-  return ["Beten", "Fiskekläder", "Spön", "Rullar", "Tillbehör"].includes(category);
+  return categoryUsesVariantsByMode(category);
 }
 
 export function hasVariants(product: Pick<Product, "variants">): boolean {
@@ -104,14 +105,14 @@ export function productRequiresVariantPick(
 export function usesDualLurePicker(
   product: Pick<Product, "category" | "variants">
 ): boolean {
-  if (product.category !== "Beten" || !hasVariants(product)) return false;
+  if (getVariantMode(product.category) !== "beten" || !hasVariants(product)) return false;
   return (product.variants ?? []).some((v) => v.weightGrams != null && v.color);
 }
 
 export function usesDualClothingPicker(
   product: Pick<Product, "category" | "variants">
 ): boolean {
-  if (product.category !== "Fiskekläder" || !hasVariants(product)) return false;
+  if (getVariantMode(product.category) !== "clothing" || !hasVariants(product)) return false;
   return (product.variants ?? []).some((v) => v.size && v.color);
 }
 
@@ -617,7 +618,7 @@ export function variantDisplayText(
 ): string | undefined {
   if (!variant) return undefined;
 
-  if (product.category === "Beten") {
+  if (getVariantMode(product.category) === "beten") {
     if (variant.weightGrams != null && variant.color) {
       return `${variant.weightGrams}g · ${variant.color}`;
     }
@@ -625,7 +626,7 @@ export function variantDisplayText(
     if (variant.color) return variant.color;
   }
 
-  if (product.category === "Fiskekläder") {
+  if (getVariantMode(product.category) === "clothing") {
     if (variant.size && variant.color) return `${variant.size} · ${variant.color}`;
     if (variant.size) return variant.size;
     if (variant.color) return variant.color;

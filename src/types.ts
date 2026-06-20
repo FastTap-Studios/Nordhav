@@ -42,6 +42,27 @@ export interface Product {
   isFeatured?: boolean;
 }
 
+/** Styr variant-redigerare och produktväljare i butiken. */
+export type CategoryVariantMode = "beten" | "clothing" | "rod" | "reel" | "simple" | "none";
+
+export interface ShopCategory {
+  id: string;
+  name: string;
+  sortOrder: number;
+  isActive: boolean;
+  showInNav: boolean;
+  showInShopFilter: boolean;
+  variantMode: CategoryVariantMode;
+}
+
+/** Styr tonen i AI-genererade produktbeskrivningar. */
+export type AiDescriptionTheme = "fishing" | "generic" | "custom";
+
+export interface ShopSettings {
+  aiDescriptionTheme: AiDescriptionTheme;
+  aiDescriptionCustomPrompt?: string;
+}
+
 export type DiscountType = "percent" | "fixed_amount" | "free_shipping";
 
 export interface DiscountCode {

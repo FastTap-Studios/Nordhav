@@ -80,3 +80,7 @@ console.log("✅ Cloudflare Pages build config updated");
 console.log("   Build command: npm run build:pages");
 console.log("   Output dir: dist");
 console.log("   Env vars: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY");
+console.log("");
+console.log("   AI i produktion (Pages Functions):");
+console.log("   npx wrangler pages secret put GEMINI_API_KEY --project-name=nordhav");
+console.log("   (klistra in samma nyckel som i .env, deploya sedan om)");

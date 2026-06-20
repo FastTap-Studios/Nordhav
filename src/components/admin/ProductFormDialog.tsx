@@ -1,12 +1,18 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { Product } from "../../types";
-import { Sparkles, Loader2, Upload, X } from "lucide-react";
+import { AiDescriptionTheme, Product, ShopSettings } from "../../types";
+import { Sparkles, Loader2, Upload, X, ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
 import AdminDialog, { AdminInput, AdminSelect, AdminTextarea, FieldLabel } from "./AdminDialog";
 import ProductVariantEditor, { prepareProductVariants } from "./ProductVariantEditor";
 import { categoryUsesVariants, defaultVariantLabel, hasVariants } from "../../lib/variants";
 import { getSaleDiscountPercent, normalizeCompareAtPrice } from "../../lib/pricing";
+import { AI_THEME_LABELS, aiThemeForCategory } from "../../lib/aiDescription";
+import { getVariantMode } from "../../lib/categories";
+import { useToast } from "./Toast";
+import { useCategories } from "../../hooks/useCategories";
+import { shopSettingsService } from "../../services/shopSettings";
 
-const CATEGORIES = ["Beten", "Spön", "Rullar", "Fiskekläder", "Tillbehör"];
+const CATEGORIES_FALLBACK = ["Beten", "Spön", "Rullar", "Fiskekläder", "Tillbehör"];
+const AI_THEMES: AiDescriptionTheme[] = ["fishing", "generic", "custom"];
 
 const emptyProduct = (): Partial<Product> => ({
   name: "",
@@ -44,13 +50,29 @@ interface ProductFormDialogProps {
 
 export default function ProductFormDialog({ open, product, onClose, onSave }: ProductFormDialogProps) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+  const { productCategories } = useCategories();
+  const categoryOptions =
+    productCategories.length > 0
+      ? productCategories.map((c) => c.name)
+      : CATEGORIES_FALLBACK;
   const [form, setForm] = useState<Partial<Product>>(emptyProduct());
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [aiConfigured, setAiConfigured] = useState<boolean | null>(null);
+  const [aiSettings, setAiSettings] = useState<ShopSettings>(shopSettingsService.getCached());
+  const aiSettingsRef = useRef<ShopSettings>(shopSettingsService.getCached());
+  const aiSettingsTouchedRef = useRef(false);
+  const [dragImageIndex, setDragImageIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    aiSettingsRef.current = aiSettings;
+  }, [aiSettings]);
 
   useEffect(() => {
     if (!open) return;
+    aiSettingsTouchedRef.current = false;
     if (product) {
       setForm({
         ...emptyProduct(),
@@ -61,6 +83,62 @@ export default function ProductFormDialog({ open, product, onClose, onSave }: Pr
       setForm(emptyProduct());
     }
   }, [open, product]);
+
+  useEffect(() => {
+    if (!open) return;
+    fetch("/api/health")
+      .then((res) => res.json())
+      .then((data) => setAiConfigured(data.aiConfigured === true))
+      .catch(() => setAiConfigured(false));
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    let active = true;
+    shopSettingsService.get().then((saved) => {
+      if (!active || aiSettingsTouchedRef.current) return;
+      if (saved.aiDescriptionTheme === "custom") {
+        aiSettingsRef.current = saved;
+        setAiSettings(saved);
+        aiSettingsTouchedRef.current = true;
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [open]);
+
+  const applyAiSettings = (next: ShopSettings) => {
+    aiSettingsRef.current = next;
+    setAiSettings(next);
+  };
+
+  const saveAiSettings = async (next: ShopSettings) => {
+    applyAiSettings(next);
+    try {
+      await shopSettingsService.save(next);
+    } catch {
+      toast("Kunde inte spara AI-inställning.", "error");
+    }
+  };
+
+  const syncThemeFromCategory = (category: string) => {
+    if (aiSettingsTouchedRef.current) return;
+    if (aiSettingsRef.current.aiDescriptionTheme === "custom") return;
+    const nextTheme = aiThemeForCategory(category, getVariantMode(category));
+    if (aiSettingsRef.current.aiDescriptionTheme === nextTheme) return;
+    void saveAiSettings({ ...aiSettingsRef.current, aiDescriptionTheme: nextTheme });
+  };
+
+  useEffect(() => {
+    if (!open || !form.category) return;
+    syncThemeFromCategory(form.category);
+  }, [form.category, open]);
+
+  const persistAiSettings = async (next: ShopSettings) => {
+    aiSettingsTouchedRef.current = true;
+    await saveAiSettings(next);
+  };
 
   const set = <K extends keyof Product>(key: K, value: Product[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -105,19 +183,63 @@ export default function ProductFormDialog({ open, product, onClose, onSave }: Pr
     syncPrimaryImage(images.filter((_, i) => i !== index));
   };
 
+  const moveImage = (from: number, to: number) => {
+    if (from === to || from < 0 || to < 0 || from >= images.length || to >= images.length) return;
+    const next = [...images];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    syncPrimaryImage(next);
+  };
+
   const handleGenerateDescription = async () => {
-    if (!form.name || !form.category) return;
+    if (!form.name?.trim() || !form.category) {
+      toast("Ange produktnamn och kategori först.", "error");
+      return;
+    }
+    if (aiConfigured === false) {
+      toast(
+        "AI är inte konfigurerad. Lokal: GEMINI_API_KEY i .env. Produktion: Cloudflare Pages Secret GEMINI_API_KEY.",
+        "error"
+      );
+      return;
+    }
+    if (aiSettingsRef.current.aiDescriptionTheme === "custom" && !aiSettingsRef.current.aiDescriptionCustomPrompt?.trim()) {
+      toast("Skriv egna AI-instruktioner eller välj ett annat tema.", "error");
+      return;
+    }
+    const settings = aiSettingsRef.current;
+    const categoryVariantMode = getVariantMode(form.category);
     setIsGenerating(true);
     try {
       const res = await fetch("/api/generate-product-info", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: form.name, category: form.category }),
+        body: JSON.stringify({
+          title: form.name.trim(),
+          category: form.category,
+          categoryVariantMode,
+          aiDescriptionTheme: settings.aiDescriptionTheme,
+          aiDescriptionCustomPrompt: settings.aiDescriptionCustomPrompt,
+        }),
       });
-      const data = await res.json();
+      const data = (await res.json()) as { description?: string; error?: string; themeUsed?: string };
+      if (!res.ok) {
+        toast(data.error || "Kunde inte generera beskrivning.", "error");
+        return;
+      }
+      if (!data.description) {
+        toast("AI returnerade ingen text.", "error");
+        return;
+      }
       set("description", data.description);
+      toast(
+        data.themeUsed === "fishing"
+          ? "Beskrivning genererad (fisketema)."
+          : "Beskrivning genererad (neutral ton)."
+      );
     } catch (e) {
       console.error(e);
+      toast("Nätverksfel — kunde inte nå AI-tjänsten.", "error");
     } finally {
       setIsGenerating(false);
     }
@@ -178,23 +300,74 @@ export default function ProductFormDialog({ open, product, onClose, onSave }: Pr
       <form id="product-form" onSubmit={handleSubmit} className="space-y-6 pt-2">
         <div>
           <FieldLabel>Ladda upp produktbilder</FieldLabel>
+          <p className="text-[11px] text-muted-foreground mb-3 -mt-1">
+            Första bilden blir huvudbild. Dra bilder eller använd pilarna för att ändra ordning.
+          </p>
           <div className="flex flex-wrap gap-3">
             {images.map((url, index) => (
-              <div key={index} className="relative w-20 h-20 rounded-lg overflow-hidden group border border-border/30">
-                <img src={url} alt="" className="w-full h-full object-cover" />
-                <button
-                  type="button"
-                  onClick={() => removeImage(index)}
-                  className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
-                >
-                  <X className="w-4 h-4 text-white" />
-                </button>
+              <div
+                key={`${url}-${index}`}
+                draggable
+                onDragStart={() => setDragImageIndex(index)}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={() => {
+                  if (dragImageIndex !== null) {
+                    moveImage(dragImageIndex, index);
+                    setDragImageIndex(null);
+                  }
+                }}
+                onDragEnd={() => setDragImageIndex(null)}
+                className={`relative w-24 rounded-lg overflow-hidden group border transition-all ${
+                  dragImageIndex === index
+                    ? "opacity-50 border-primary/50 scale-95"
+                    : dragImageIndex !== null
+                      ? "border-primary/30"
+                      : "border-border/30"
+                }`}
+              >
+                <div className="relative w-24 h-20">
+                  <img src={url} alt="" className="w-full h-full object-cover" draggable={false} />
+                  <div className="absolute top-1 left-1 p-0.5 rounded bg-black/45 text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing">
+                    <GripVertical className="w-3 h-3" />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeImage(index)}
+                    className="absolute top-1 right-1 p-0.5 rounded bg-black/45 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/80"
+                    aria-label="Ta bort bild"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+                <div className="flex items-center justify-between gap-0.5 px-1 py-1 bg-secondary/60 border-t border-border/20">
+                  <button
+                    type="button"
+                    onClick={() => moveImage(index, index - 1)}
+                    disabled={index === 0}
+                    className="p-0.5 rounded hover:bg-background disabled:opacity-30 disabled:pointer-events-none"
+                    aria-label="Flytta bild åt vänster"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="text-[9px] font-mono uppercase tracking-wide text-muted-foreground truncate">
+                    {index === 0 ? "Huvud" : `#${index + 1}`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => moveImage(index, index + 1)}
+                    disabled={index === images.length - 1}
+                    className="p-0.5 rounded hover:bg-background disabled:opacity-30 disabled:pointer-events-none"
+                    aria-label="Flytta bild åt höger"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             ))}
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="w-20 h-20 rounded-lg border-2 border-dashed border-border hover:border-primary/50 flex items-center justify-center cursor-pointer transition-colors bg-secondary/30"
+              className="w-24 h-[6.75rem] rounded-lg border-2 border-dashed border-border hover:border-primary/50 flex items-center justify-center cursor-pointer transition-colors bg-secondary/30 self-start"
             >
               {uploading ? (
                 <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
@@ -229,22 +402,58 @@ export default function ProductFormDialog({ open, product, onClose, onSave }: Pr
         </div>
 
         <div>
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between gap-3 mb-2">
             <FieldLabel>Beskrivning (SV) *</FieldLabel>
-            <button
-              type="button"
-              onClick={handleGenerateDescription}
-              disabled={!form.name || isGenerating}
-              className="text-[10px] font-mono text-primary uppercase flex items-center hover:opacity-80 disabled:opacity-50"
-            >
-              {isGenerating ? (
-                <Loader2 className="animate-spin h-3 w-3 mr-1" />
-              ) : (
-                <Sparkles className="h-3 w-3 mr-1" />
-              )}
-              AI-skriv
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <AdminSelect
+                value={aiSettings.aiDescriptionTheme}
+                onChange={(e) =>
+                  void persistAiSettings({
+                    ...aiSettings,
+                    aiDescriptionTheme: e.target.value as AiDescriptionTheme,
+                  })
+                }
+                className="!mt-0 w-auto min-w-[9rem] text-[10px] font-mono uppercase py-1 pl-2 pr-7 h-7"
+                aria-label="AI-ton"
+              >
+                {AI_THEMES.map((theme) => (
+                  <option key={theme} value={theme}>
+                    {AI_THEME_LABELS[theme]}
+                  </option>
+                ))}
+              </AdminSelect>
+              <button
+                type="button"
+                onClick={handleGenerateDescription}
+                disabled={!form.name || isGenerating}
+                className="text-[10px] font-mono text-primary uppercase flex items-center hover:opacity-80 disabled:opacity-50 whitespace-nowrap"
+              >
+                {isGenerating ? (
+                  <Loader2 className="animate-spin h-3 w-3 mr-1" />
+                ) : (
+                  <Sparkles className="h-3 w-3 mr-1" />
+                )}
+                AI-skriv
+              </button>
+            </div>
           </div>
+          {aiSettings.aiDescriptionTheme === "custom" && (
+            <AdminTextarea
+              rows={2}
+              value={aiSettings.aiDescriptionCustomPrompt ?? ""}
+              onChange={(e) =>
+                setAiSettings((prev) => ({ ...prev, aiDescriptionCustomPrompt: e.target.value }))
+              }
+              onBlur={(e) =>
+                void persistAiSettings({
+                  aiDescriptionTheme: aiSettings.aiDescriptionTheme,
+                  aiDescriptionCustomPrompt: e.target.value,
+                })
+              }
+              placeholder="Egna instruktioner till AI, t.ex. skriv som en livsmedelsbutik med fokus på hållbarhet…"
+              className="mb-2 text-xs"
+            />
+          )}
           <AdminTextarea
             required
             rows={3}
@@ -318,9 +527,10 @@ export default function ProductFormDialog({ open, product, onClose, onSave }: Pr
                         ? defaultVariantLabel(category)
                         : prev.variantLabel,
                 }));
+                syncThemeFromCategory(category);
               }}
             >
-              {CATEGORIES.map((c) => (
+              {categoryOptions.map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>

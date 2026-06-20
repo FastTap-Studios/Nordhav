@@ -14,11 +14,13 @@ import {
   X,
   LogOut,
   Users,
+  Layers,
 } from "lucide-react";
 
 const navItems = [
   { path: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true },
   { path: "/admin/products", label: "Produkter", icon: Package },
+  { path: "/admin/categories", label: "Kategorier", icon: Layers },
   { path: "/admin/orders", label: "Ordrar", icon: ShoppingCart },
   { path: "/admin/returns", label: "Returer", icon: RotateCcw },
   { path: "/admin/discounts", label: "Rabatter", icon: Tag },

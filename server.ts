@@ -3,7 +3,8 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import Stripe from "stripe";
 import dotenv from "dotenv";
-import { GoogleGenAI } from "@google/genai";
+import { generateProductDescription, ProductInfoError } from "./src/lib/generateProductInfo.ts";
+import { isGeminiConfigured } from "./src/lib/geminiClient.ts";
 
 dotenv.config();
 
@@ -19,24 +20,7 @@ function getStripe(): Stripe {
   return stripeClient;
 }
 
-let genAIClient: GoogleGenAI | null = null;
-function getGenAI(): GoogleGenAI {
-  if (!genAIClient) {
-    const key = process.env.GEMINI_API_KEY;
-    if (!key) {
-       throw new Error("GEMINI_API_KEY environment variable is required for product description generation");
-    }
-    genAIClient = new GoogleGenAI({
-      apiKey: key,
-      httpOptions: {
-        headers: {
-          "User-Agent": "aistudio-build",
-        },
-      },
-    });
-  }
-  return genAIClient;
-}
+const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || undefined;
 
 async function startServer() {
   const app = express();
@@ -47,22 +31,25 @@ async function startServer() {
 
   // API Routes
   app.get("/api/health", (req, res) => {
-    res.json({ status: "ok" });
+    res.json({ status: "ok", aiConfigured: isGeminiConfigured(process.env.GEMINI_API_KEY) });
   });
 
   // AI Product Generation
   app.post("/api/generate-product-info", async (req, res) => {
     try {
-      const { title, category } = req.body;
-      const genAI = getGenAI();
-      const response = await genAI.models.generateContent({
-        model: "gemini-3.5-flash",
-        contents: `Skapa en lockande produktbeskrivning på svenska för en fiskeprodukt med titeln "${title}" i kategorin "${category}". Beskrivningen ska vara säljande, professionell och rik på detaljer om varför en fiskare skulle älska den.`,
+      const result = await generateProductDescription(req.body, {
+        apiKey: process.env.GEMINI_API_KEY,
+        model: GEMINI_MODEL,
+        log: !isProduction,
       });
-      res.json({ description: response.text });
-    } catch (error: any) {
+      res.json(result);
+    } catch (error: unknown) {
+      if (error instanceof ProductInfoError) {
+        return res.status(error.status).json({ error: error.message });
+      }
+      const message = error instanceof Error ? error.message : "Okänt fel vid AI-generering";
       console.error("Gemini error:", error);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: message });
     }
   });
 
