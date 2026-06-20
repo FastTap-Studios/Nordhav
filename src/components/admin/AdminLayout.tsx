@@ -47,11 +47,11 @@ export default function AdminLayout({ children, userEmail, onLogout }: AdminLayo
 
   const sidebar = (
     <aside
-      className={`fixed lg:sticky top-0 h-screen z-50 flex flex-col bg-card border-r border-border/30 transition-all duration-300 ${
+      className={`fixed lg:sticky top-0 h-dvh max-h-dvh lg:h-screen lg:max-h-screen z-50 flex flex-col overflow-hidden bg-card border-r border-border/30 transition-all duration-300 ${
         collapsed ? "w-[72px]" : "w-60"
       } ${mobileOpen ? "left-0" : "-left-64 lg:left-0"}`}
     >
-      <div className="flex items-center justify-between p-4 border-b border-border/30">
+      <div className="flex shrink-0 items-center justify-between p-4 border-b border-border/30">
         {!collapsed && (
           <span className="text-sm font-bold tracking-widest font-display">
             NORD<span className="text-primary">HAV</span>
@@ -75,7 +75,7 @@ export default function AdminLayout({ children, userEmail, onLogout }: AdminLayo
         </button>
       </div>
 
-      <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
+      <nav className="flex-1 min-h-0 p-2 space-y-1 overflow-y-auto overscroll-contain">
         {navItems.map((item) => {
           const active = isActive(item.path, item.end);
           return (
@@ -99,7 +99,7 @@ export default function AdminLayout({ children, userEmail, onLogout }: AdminLayo
         })}
       </nav>
 
-      <div className="p-3 border-t border-border/30">
+      <div className="shrink-0 p-3 border-t border-border/30">
         <Link
           to="/"
           onClick={() => setMobileOpen(false)}
