@@ -437,9 +437,9 @@ export default function ProductFormDialog({ open, product, onClose, onSave }: Pr
         </div>
 
         <div>
-          <div className="flex items-center justify-between gap-3 mb-2">
-            <FieldLabel>Beskrivning (SV) *</FieldLabel>
-            <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-col gap-2 mb-2 md:flex-row md:items-center md:justify-between md:gap-3">
+            <FieldLabel className="mb-0">Beskrivning (SV) *</FieldLabel>
+            <div className="flex flex-col gap-2 min-w-0 md:flex-row md:items-center md:gap-2 md:shrink-0">
               <AdminSelect
                 value={aiSettings.aiDescriptionTheme}
                 onChange={(e) =>
@@ -448,7 +448,7 @@ export default function ProductFormDialog({ open, product, onClose, onSave }: Pr
                     aiDescriptionTheme: e.target.value as AiDescriptionTheme,
                   })
                 }
-                className="!mt-0 w-auto min-w-[9rem] text-[10px] font-mono uppercase py-1 pl-2 pr-7 h-7"
+                className="!mt-0 w-full md:w-auto md:min-w-[9rem] text-[10px] font-mono uppercase py-2 md:py-1 pl-2 pr-7 h-10 md:h-7"
                 aria-label="AI-ton"
               >
                 {AI_THEMES.map((theme) => (
@@ -457,33 +457,35 @@ export default function ProductFormDialog({ open, product, onClose, onSave }: Pr
                   </option>
                 ))}
               </AdminSelect>
-              <button
-                type="button"
-                onClick={handleImproveDescription}
-                disabled={!form.description?.trim() || isGenerating}
-                title={form.description?.trim() ? "Förbättra befintlig text" : "Skriv en beskrivning först"}
-                className="text-[10px] font-mono text-primary uppercase flex items-center hover:opacity-80 disabled:opacity-50 whitespace-nowrap"
-              >
-                {isGenerating && aiAction === "improve" ? (
-                  <Loader2 className="animate-spin h-3 w-3 mr-1" />
-                ) : (
-                  <Wand2 className="h-3 w-3 mr-1" />
-                )}
-                AI-förbättra
-              </button>
-              <button
-                type="button"
-                onClick={handleGenerateDescription}
-                disabled={!form.name || isGenerating}
-                className="text-[10px] font-mono text-primary uppercase flex items-center hover:opacity-80 disabled:opacity-50 whitespace-nowrap"
-              >
-                {isGenerating && aiAction === "generate" ? (
-                  <Loader2 className="animate-spin h-3 w-3 mr-1" />
-                ) : (
-                  <Sparkles className="h-3 w-3 mr-1" />
-                )}
-                AI-skriv
-              </button>
+              <div className="grid grid-cols-2 gap-2 md:flex md:items-center md:gap-2">
+                <button
+                  type="button"
+                  onClick={handleImproveDescription}
+                  disabled={!form.description?.trim() || isGenerating}
+                  title={form.description?.trim() ? "Förbättra befintlig text" : "Skriv en beskrivning först"}
+                  className="text-[10px] font-mono text-primary uppercase flex items-center justify-center gap-1 min-h-10 md:min-h-0 px-2 md:px-0 rounded-lg border border-primary/25 bg-primary/5 md:border-0 md:bg-transparent md:rounded-none hover:opacity-80 disabled:opacity-50 md:whitespace-nowrap"
+                >
+                  {isGenerating && aiAction === "improve" ? (
+                    <Loader2 className="animate-spin h-3 w-3 shrink-0" />
+                  ) : (
+                    <Wand2 className="h-3 w-3 shrink-0" />
+                  )}
+                  AI-förbättra
+                </button>
+                <button
+                  type="button"
+                  onClick={handleGenerateDescription}
+                  disabled={!form.name || isGenerating}
+                  className="text-[10px] font-mono text-primary uppercase flex items-center justify-center gap-1 min-h-10 md:min-h-0 px-2 md:px-0 rounded-lg border border-primary/25 bg-primary/5 md:border-0 md:bg-transparent md:rounded-none hover:opacity-80 disabled:opacity-50 md:whitespace-nowrap"
+                >
+                  {isGenerating && aiAction === "generate" ? (
+                    <Loader2 className="animate-spin h-3 w-3 shrink-0" />
+                  ) : (
+                    <Sparkles className="h-3 w-3 shrink-0" />
+                  )}
+                  AI-skriv
+                </button>
+              </div>
             </div>
           </div>
           {aiSettings.aiDescriptionTheme === "custom" && (

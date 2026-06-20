@@ -29,6 +29,51 @@ function stockClass(stock: number) {
   return "text-red-500";
 }
 
+function ProductThumbnail({ imageUrl }: { imageUrl?: string }) {
+  if (imageUrl) {
+    return (
+      <img
+        src={imageUrl}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        className="size-12 shrink-0 rounded-lg object-cover border border-border/20 md:size-10"
+      />
+    );
+  }
+  return (
+    <div className="size-12 shrink-0 rounded-lg bg-muted flex items-center justify-center md:size-10">
+      <Package className="w-4 h-4 text-muted-foreground" />
+    </div>
+  );
+}
+
+function ProductPrice({ product }: { product: Product }) {
+  const sale = getProductSaleInfo(product);
+  if (!sale) return <span>{product.price} kr</span>;
+  return (
+    <span>
+      <span className="text-red-600">{product.price} kr</span>
+      <span className="text-xs text-muted-foreground line-through ml-1.5">{sale.originalPrice} kr</span>
+      <span className="text-[10px] text-red-500 font-mono ml-1">−{sale.percentage}%</span>
+    </span>
+  );
+}
+
+function ProductStatusBadge({ active }: { active: boolean }) {
+  return (
+    <span
+      className={`text-xs font-mono px-2 py-0.5 rounded-md border ${
+        active
+          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+          : "bg-red-50 text-red-600 border-red-200"
+      }`}
+    >
+      {active ? "Aktiv" : "Inaktiv"}
+    </span>
+  );
+}
+
 export default function ProductsView({
   products,
   loading,
@@ -148,111 +193,125 @@ export default function ProductsView({
             )}
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border/30 bg-muted/30">
-                  <th className="text-left px-4 py-3 w-16" />
-                  <th className="text-left px-4 py-3 font-mono text-xs uppercase tracking-wider text-muted-foreground">
-                    Namn
-                  </th>
-                  <th className="text-left px-4 py-3 font-mono text-xs uppercase tracking-wider text-muted-foreground hidden md:table-cell">
-                    SKU
-                  </th>
-                  <th className="text-left px-4 py-3 font-mono text-xs uppercase tracking-wider text-muted-foreground">
-                    Pris
-                  </th>
-                  <th className="text-left px-4 py-3 font-mono text-xs uppercase tracking-wider text-muted-foreground">
-                    Lager
-                  </th>
-                  <th className="text-left px-4 py-3 font-mono text-xs uppercase tracking-wider text-muted-foreground hidden sm:table-cell">
-                    Status
-                  </th>
-                  <th className="text-right px-4 py-3 font-mono text-xs uppercase tracking-wider text-muted-foreground">
-                    Åtgärder
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((product) => (
-                  <tr
-                    key={product.id}
-                    className="border-b border-border/20 hover:bg-muted/20 transition-colors"
-                  >
-                    <td className="px-4 py-3">
-                      {product.imageUrl ? (
-                        <img
-                          src={product.imageUrl}
-                          alt=""
-                          className="w-10 h-10 rounded-lg object-cover border border-border/20"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                          <Package className="w-4 h-4 text-muted-foreground" />
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 min-w-0">
-                      <p className="font-medium truncate">{product.name}</p>
-                      <p className="text-xs text-muted-foreground">{product.category}</p>
-                    </td>
-                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground hidden md:table-cell">
-                      {product.sku || `NH-${product.id.slice(-6).toUpperCase()}`}
-                    </td>
-                    <td className="px-4 py-3 font-medium whitespace-nowrap">
-                      {(() => {
-                        const sale = getProductSaleInfo(product);
-                        if (!sale) return `${product.price} kr`;
-                        return (
-                          <span>
-                            <span className="text-red-600">{product.price} kr</span>
-                            <span className="text-xs text-muted-foreground line-through ml-1.5">
-                              {sale.originalPrice} kr
-                            </span>
-                            <span className="text-[10px] text-red-500 font-mono ml-1">−{sale.percentage}%</span>
-                          </span>
-                        );
-                      })()}
-                    </td>
-                    <td className={`px-4 py-3 font-mono text-xs ${stockClass(product.stock)}`}>
-                      {product.stock}
-                    </td>
-                    <td className="px-4 py-3 hidden sm:table-cell">
-                      <span
-                        className={`text-xs font-mono px-2 py-0.5 rounded-md border ${
-                          product.isActive !== false
-                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                            : "bg-red-50 text-red-600 border-red-200"
-                        }`}
-                      >
-                        {product.isActive !== false ? "Aktiv" : "Inaktiv"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-1">
-                        <button
-                          type="button"
-                          onClick={() => openEdit(product)}
-                          className="p-2 text-muted-foreground hover:text-primary rounded-lg hover:bg-secondary transition-colors"
-                          aria-label="Redigera"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(product.id)}
-                          className="p-2 text-muted-foreground hover:text-destructive rounded-lg hover:bg-secondary transition-colors"
-                          aria-label="Ta bort"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+          <>
+            <div className="md:hidden divide-y divide-border/20">
+              {filtered.map((product) => (
+                <div key={product.id} className="flex gap-3 p-3 sm:p-4">
+                  <ProductThumbnail imageUrl={product.imageUrl} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-medium leading-snug">{product.name}</p>
+                        <p className="text-xs text-muted-foreground">{product.category}</p>
                       </div>
-                    </td>
+                      <ProductStatusBadge active={product.isActive !== false} />
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                      <ProductPrice product={product} />
+                      <span className={`font-mono text-xs ${stockClass(product.stock)}`}>
+                        Lager: {product.stock}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 flex-col gap-1">
+                    <button
+                      type="button"
+                      onClick={() => openEdit(product)}
+                      className="p-2 text-muted-foreground hover:text-primary rounded-lg hover:bg-secondary transition-colors"
+                      aria-label="Redigera"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(product.id)}
+                      className="p-2 text-muted-foreground hover:text-destructive rounded-lg hover:bg-secondary transition-colors"
+                      aria-label="Ta bort"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border/30 bg-muted/30">
+                    <th className="text-left px-4 py-3 font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                      Produkt
+                    </th>
+                    <th className="text-left px-4 py-3 font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                      SKU
+                    </th>
+                    <th className="text-left px-4 py-3 font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                      Pris
+                    </th>
+                    <th className="text-left px-4 py-3 font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                      Lager
+                    </th>
+                    <th className="text-left px-4 py-3 font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                      Status
+                    </th>
+                    <th className="text-right px-4 py-3 font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                      Åtgärder
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {filtered.map((product) => (
+                    <tr
+                      key={product.id}
+                      className="border-b border-border/20 hover:bg-muted/20 transition-colors"
+                    >
+                      <td className="px-4 py-3 min-w-0">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <ProductThumbnail imageUrl={product.imageUrl} />
+                          <div className="min-w-0">
+                            <p className="font-medium truncate">{product.name}</p>
+                            <p className="text-xs text-muted-foreground truncate">{product.category}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                        {product.sku || `NH-${product.id.slice(-6).toUpperCase()}`}
+                      </td>
+                      <td className="px-4 py-3 font-medium whitespace-nowrap">
+                        <ProductPrice product={product} />
+                      </td>
+                      <td className={`px-4 py-3 font-mono text-xs ${stockClass(product.stock)}`}>
+                        {product.stock}
+                      </td>
+                      <td className="px-4 py-3">
+                        <ProductStatusBadge active={product.isActive !== false} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => openEdit(product)}
+                            className="p-2 text-muted-foreground hover:text-primary rounded-lg hover:bg-secondary transition-colors"
+                            aria-label="Redigera"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(product.id)}
+                            className="p-2 text-muted-foreground hover:text-destructive rounded-lg hover:bg-secondary transition-colors"
+                            aria-label="Ta bort"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 

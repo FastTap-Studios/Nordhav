@@ -10,8 +10,8 @@ interface AdminDialogProps {
   wide?: boolean;
 }
 
-export function FieldLabel({ children }: { children: ReactNode }) {
-  return <label className="text-xs text-muted-foreground mb-2 block">{children}</label>;
+export function FieldLabel({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return <label className={`text-xs text-muted-foreground mb-2 block ${className}`}>{children}</label>;
 }
 
 export default function AdminDialog({ open, title, onClose, children, footer, wide }: AdminDialogProps) {
