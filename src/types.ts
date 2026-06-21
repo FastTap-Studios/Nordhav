@@ -55,6 +55,17 @@ export interface ShopCategory {
   variantMode: CategoryVariantMode;
 }
 
+/** Marknadsföringskort på startsidan — länkar till produktkategorier i butiken. */
+export interface HomepageSpotlight {
+  id: string;
+  label: string;
+  imageUrl: string;
+  /** Måste matcha ShopCategory.name / Product.category */
+  categoryNames: string[];
+  sortOrder: number;
+  isActive: boolean;
+}
+
 /** Styr tonen i AI-genererade produktbeskrivningar. */
 export type AiDescriptionTheme = "fishing" | "generic" | "custom";
 

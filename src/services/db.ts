@@ -20,7 +20,7 @@ import {
 import { normalizeVariants } from "../lib/variants";
 
 const LISTING_FIELDS =
-  "id, name, price, category, image_url, description, stock, is_active, is_featured, created_at, variant_label, compare_at_price";
+  "id, name, price, category, image_url, description, stock, is_active, is_featured, created_at, variant_label, compare_at_price, sku";
 
 let listingFetchPromise: Promise<Product[]> | null = null;
 

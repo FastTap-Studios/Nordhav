@@ -12,29 +12,13 @@ import { useCart } from "../hooks/useCart";
 import { useProductListing } from "../hooks/useProductListing";
 import { getProductSaleInfo } from "../lib/pricing";
 import { getProductStock, productRequiresVariantPick } from "../lib/variants";
-import {
-  resolveImageUrl,
-  publicImagePath,
-  HERO_BANNER,
-  CAT_LURES,
-  CAT_REELS,
-  CAT_TACKLEBOX,
-  CAT_SPINNER,
-  CAT_JACKET,
-  CAT_NET,
-} from "../lib/images";
+import { resolveImageUrl, publicImagePath, HERO_BANNER } from "../lib/images";
+import { useHomepageSpotlights } from "../hooks/useHomepageSpotlights";
+import { spotlightShopPath } from "../lib/homepageSpotlights";
 
 const BLOG_JERKBAIT = publicImagePath("nordhav_jerkbait_1781308554224.jpg");
 const BLOG_WADERS = publicImagePath("nordhav_waders_1781308619366.jpg");
-
-const fishingCategories = [
-  { name: "Gäddfiske", image: CAT_LURES, query: "Beten" },
-  { name: "Abborrfiske", image: CAT_REELS, query: "Rullar" },
-  { name: "Kustfiske", image: CAT_TACKLEBOX, query: "Tillbehör" },
-  { name: "Flugfiske", image: CAT_SPINNER, query: "Beten" },
-  { name: "Kläder", image: CAT_JACKET, query: "Fiskekläder" },
-  { name: "Elektronik", image: CAT_NET, query: "Tillbehör" },
-];
+const CAT_SPINNER = publicImagePath("nordhav_spinner_1781308605971.jpg");
 
 const blogPosts = [
   {
@@ -64,6 +48,7 @@ function pseudoRating(id: string) {
 
 export default function Home() {
   const { products: allProducts, loading } = useProductListing();
+  const { spotlights, loading: spotlightsLoading } = useHomepageSpotlights();
   const products = allProducts.slice(0, 6);
   const [newsletterEmail, setNewsletterEmail] = useState("");
   const navigate = useNavigate();
@@ -137,27 +122,48 @@ export default function Home() {
       {/* Category circles */}
       <section className="bg-white py-12 border-b border-slate-100">
         <div className="max-w-7xl mx-auto px-6 sm:px-8">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-6">
-            {fishingCategories.map((cat) => (
-              <Link
-                key={cat.name}
-                to={`/shop?category=${encodeURIComponent(cat.query)}`}
-                className="group flex flex-col items-center text-center bg-[#f0f4f8] hover:bg-[#e1e8f0] p-5 rounded-2xl transition-all duration-300 border border-[#e4e7eb]/40"
-              >
-                <div className="h-28 w-28 rounded-full bg-white overflow-hidden mb-4 shadow-inner border border-slate-100/60 transition-transform group-hover:scale-105 duration-300">
-                  <img
-                    src={cat.image}
-                    alt={cat.name}
-                    className="w-full h-full object-cover filter brightness-[1.01]"
-                  />
+          {spotlightsLoading && spotlights.length === 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-6">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="flex flex-col items-center bg-[#f0f4f8] p-5 rounded-2xl border border-[#e4e7eb]/40 animate-pulse"
+                >
+                  <div className="h-28 w-28 rounded-full bg-slate-200 mb-4" />
+                  <div className="h-3 bg-slate-200 rounded w-20 mb-2" />
+                  <div className="h-2 bg-slate-100 rounded w-16" />
                 </div>
-                <span className="text-[12px] font-black tracking-widest text-[#0f2d4a] uppercase">{cat.name}</span>
-                <span className="text-[10px] font-bold text-[#70aed3] group-hover:text-[#5fa0c8] mt-1.5 inline-flex items-center gap-1 transition-colors">
-                  Se produkter <ArrowRight className="h-3 w-3 stroke-[2.5]" />
-                </span>
-              </Link>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-6">
+              {spotlights.map((cat) => (
+                <Link
+                  key={cat.id}
+                  to={spotlightShopPath(cat.categoryNames)}
+                  className="group flex flex-col items-center text-center bg-[#f0f4f8] hover:bg-[#e1e8f0] p-5 rounded-2xl transition-all duration-300 border border-[#e4e7eb]/40"
+                >
+                  <div className="h-28 w-28 rounded-full bg-white overflow-hidden mb-4 shadow-inner border border-slate-100/60 transition-transform group-hover:scale-105 duration-300">
+                    {cat.imageUrl ? (
+                      <img
+                        src={resolveImageUrl(cat.imageUrl)}
+                        alt={cat.label}
+                        className="w-full h-full object-cover filter brightness-[1.01]"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-slate-100" />
+                    )}
+                  </div>
+                  <span className="text-[12px] font-black tracking-widest text-[#0f2d4a] uppercase">
+                    {cat.label}
+                  </span>
+                  <span className="text-[10px] font-bold text-[#70aed3] group-hover:text-[#5fa0c8] mt-1.5 inline-flex items-center gap-1 transition-colors">
+                    Se produkter <ArrowRight className="h-3 w-3 stroke-[2.5]" />
+                  </span>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

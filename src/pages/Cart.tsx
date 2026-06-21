@@ -14,6 +14,7 @@ import { discountService } from "../services/discounts";
 import { DiscountCode } from "../types";
 import { calculateCheckoutTotals, FREE_SHIPPING_THRESHOLD, loadStoredDiscount, storeDiscount } from "../lib/checkout";
 import { resolveImageUrl } from "../lib/images";
+import { resolveCartLineSku } from "../lib/sku";
 import { variantDisplayText } from "../lib/variants";
 import OrderSummary from "../components/checkout/OrderSummary";
 
@@ -126,6 +127,9 @@ export default function Cart() {
                           {variantDisplayText(item, item.selectedVariant)}
                         </p>
                       )}
+                      <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                        {resolveCartLineSku(item)}
+                      </p>
                     </div>
                     <button
                       type="button"

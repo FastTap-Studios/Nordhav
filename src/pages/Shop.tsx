@@ -10,6 +10,7 @@ import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { resolveImageUrl } from "../lib/images";
 import { getProductSaleInfo, isProductOnSale } from "../lib/pricing";
 import { useCategories } from "../hooks/useCategories";
+import { parseShopCategoryParam } from "../lib/homepageSpotlights";
 
 function ProductGridSkeleton({ count = 8 }: { count?: number }) {
   return (
@@ -40,7 +41,7 @@ export default function Shop() {
   const { products, loading } = useProductListing();
   const [searchTerm, setSearchTerm] = useState("");
   const [searchParams, setSearchParams] = useSearchParams();
-  const selectedCategory = searchParams.get("category") || "Alla";
+  const selectedCategories = parseShopCategoryParam(searchParams.get("category"));
   const { shopFilterCategories } = useCategories();
   const filterCategories = shopFilterCategories.length
     ? shopFilterCategories.map((c) => c.name)
@@ -72,7 +73,8 @@ export default function Shop() {
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (p.description ?? "").toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory =
-      selectedCategory === "Alla" || p.category.toLowerCase() === selectedCategory.toLowerCase();
+      selectedCategories.length === 0 ||
+      selectedCategories.some((category) => p.category.toLowerCase() === category.toLowerCase());
     const matchesSale = !saleOnly || isProductOnSale(p);
     return matchesSearch && matchesCategory && matchesSale;
   });
@@ -125,19 +127,25 @@ export default function Shop() {
         {/* Categories filters styled as luxury filters */}
         <div className="flex items-center space-x-3 mb-12 overflow-x-auto pb-4 scrollbar-thin">
           <span className="text-xs font-black text-slate-400 uppercase tracking-widest font-mono hidden sm:inline-block mr-2">AVDELNING:</span>
-          {["Alla", ...filterCategories].map((cat) => (
+          {["Alla", ...filterCategories].map((cat) => {
+            const isActive =
+              cat === "Alla"
+                ? selectedCategories.length === 0
+                : selectedCategories.some((selected) => selected.toLowerCase() === cat.toLowerCase());
+            return (
             <button
               key={cat}
               onClick={() => handleCategorySelect(cat)}
               className={`px-7 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap border ${
-                selectedCategory.toLowerCase() === cat.toLowerCase()
+                isActive
                   ? "bg-[#0b231a] border-[#0b231a] text-amber-400 shadow-md"
                   : "bg-white border-slate-200 text-slate-600 hover:border-[#0b231a] hover:text-[#0b231a]"
               }`}
             >
               {cat}
             </button>
-          ))}
+            );
+          })}
         </div>
 
         {loading && products.length === 0 ? (

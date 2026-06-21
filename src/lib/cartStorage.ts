@@ -1,4 +1,5 @@
 import { CartItem, Product, ProductVariant } from "../types";
+import { resolveLineSku, enrichCartItemSku, mergeProductSkuForCart, resolveVariantForCart } from "./sku";
 
 const CART_STORAGE_KEY = "fishing_cart";
 
@@ -11,6 +12,7 @@ export interface StoredCartItem {
   stock: number;
   quantity: number;
   cartLineId: string;
+  sku: string;
   compareAtPrice?: number;
   selectedVariant?: Pick<
     ProductVariant,
@@ -61,6 +63,7 @@ export function buildCartLine(
     description: "",
     createdAt: product.createdAt ?? "",
     compareAtPrice: product.compareAtPrice,
+    sku: resolveLineSku(product, variant),
     quantity,
     cartLineId: lineId,
     selectedVariant: variant ? slimVariantForCart(variant) : undefined,
@@ -77,6 +80,7 @@ export function toStoredCartItem(item: CartItem): StoredCartItem {
     stock: item.selectedVariant?.stock ?? item.stock,
     quantity: item.quantity,
     cartLineId: item.cartLineId || item.id,
+    sku: item.sku || resolveLineSku(item, item.selectedVariant),
     compareAtPrice: item.compareAtPrice,
     selectedVariant: item.selectedVariant ? slimVariantForCart(item.selectedVariant) : undefined,
   };
@@ -93,6 +97,7 @@ export function fromStoredCartItem(stored: StoredCartItem): CartItem {
     description: "",
     createdAt: "",
     compareAtPrice: stored.compareAtPrice,
+    sku: stored.sku || resolveLineSku({ id: stored.id, sku: undefined }, stored.selectedVariant),
     quantity: stored.quantity,
     cartLineId: stored.cartLineId,
     selectedVariant: stored.selectedVariant,
@@ -107,15 +112,21 @@ export function normalizeStoredCart(raw: unknown): CartItem[] {
       if (!entry || typeof entry !== "object") return null;
       const item = entry as CartItem;
       if ("variants" in item || "imageUrls" in item) {
-        return buildCartLine(
-          item as Product,
-          item.cartLineId || item.id,
-          item.quantity ?? 1,
-          item.selectedVariant?.stock ?? item.stock ?? 0,
-          item.selectedVariant
+        const product = mergeProductSkuForCart(item as Product);
+        const variant = item.selectedVariant
+          ? resolveVariantForCart(product.id, item.selectedVariant as ProductVariant, product.variants)
+          : undefined;
+        return enrichCartItemSku(
+          buildCartLine(
+            product,
+            item.cartLineId || item.id,
+            item.quantity ?? 1,
+            variant?.stock ?? item.selectedVariant?.stock ?? item.stock ?? 0,
+            variant
+          )
         );
       }
-      return fromStoredCartItem(toStoredCartItem(item));
+      return enrichCartItemSku(fromStoredCartItem(toStoredCartItem(item)));
     })
     .filter((item): item is CartItem => item != null);
 }
@@ -124,7 +135,7 @@ export function loadCartFromStorage(): CartItem[] {
   try {
     const saved = localStorage.getItem(CART_STORAGE_KEY);
     if (!saved) return [];
-    return normalizeStoredCart(JSON.parse(saved));
+    return normalizeStoredCart(JSON.parse(saved)).map(enrichCartItemSku);
   } catch {
     try {
       localStorage.removeItem(CART_STORAGE_KEY);

@@ -1,6 +1,7 @@
 import { CartItem } from "../../types";
 import { CheckoutTotals, FREE_SHIPPING_THRESHOLD } from "../../lib/checkout";
 import { resolveImageUrl } from "../../lib/images";
+import { resolveCartLineSku } from "../../lib/sku";
 import { variantDisplayText } from "../../lib/variants";
 import { Info, Tag, Truck } from "lucide-react";
 
@@ -43,6 +44,9 @@ export default function OrderSummary({
                     {variantDisplayText(item, item.selectedVariant)}
                   </p>
                 )}
+                <p className="text-[10px] text-slate-400 font-mono">
+                  {resolveCartLineSku(item)}
+                </p>
                 <p className="text-[10px] text-slate-400 font-mono">
                   {item.quantity} × {item.price} kr
                 </p>

@@ -6,6 +6,7 @@ import { ArrowRight, Minus, Plus, ShoppingBag, Trash2, X } from "lucide-react";
 import { useCart } from "../hooks/useCart";
 import { calculateCheckoutTotals, FREE_SHIPPING_THRESHOLD, loadStoredDiscount } from "../lib/checkout";
 import { resolveImageUrl } from "../lib/images";
+import { resolveCartLineSku } from "../lib/sku";
 import { variantDisplayText } from "../lib/variants";
 
 export default function CartDrawer() {
@@ -138,6 +139,9 @@ export default function CartDrawer() {
                                 {variantDisplayText(item, item.selectedVariant)}
                               </p>
                             )}
+                            <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                              {resolveCartLineSku(item)}
+                            </p>
                           </div>
                           <button
                             type="button"

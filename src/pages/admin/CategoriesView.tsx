@@ -16,6 +16,7 @@ import {
   Filter,
 } from "lucide-react";
 import AdminDialog, { AdminInput, AdminSelect, FieldLabel } from "../../components/admin/AdminDialog";
+import HomepageSpotlightsPanel from "../../components/admin/HomepageSpotlightsPanel";
 import { useToast } from "../../components/admin/Toast";
 import { useCategories } from "../../hooks/useCategories";
 
@@ -180,8 +181,9 @@ export default function CategoriesView({ products, onProductsChanged }: Categori
             Kategorier
           </h2>
           <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-            Hantera sortimentets kategorier. Ändringar syns i butik, navigation och produktformulär.
-            Byter du namn uppdateras alla produkter i kategorin automatiskt.
+            Produkter kopplas till kategorier via fältet <strong className="font-medium">Kategori</strong> i
+            produktformuläret. Kategorierna styr sortiment, navigation och filter. Byter du namn uppdateras alla
+            produkter i kategorin automatiskt.
           </p>
         </div>
         <button
@@ -310,6 +312,8 @@ export default function CategoriesView({ products, onProductsChanged }: Categori
           </div>
         )}
       </div>
+
+      <HomepageSpotlightsPanel productCategories={categories.map((c) => c.name)} />
 
       <AdminDialog
         open={dialogOpen}

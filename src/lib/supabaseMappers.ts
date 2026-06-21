@@ -63,6 +63,7 @@ export function productListingFromRow(row: any): Product {
     isFeatured: row.is_featured ?? false,
     variantLabel: row.variant_label ?? undefined,
     compareAtPrice: row.compare_at_price != null ? Number(row.compare_at_price) : undefined,
+    sku: row.sku ?? undefined,
   };
 }
 

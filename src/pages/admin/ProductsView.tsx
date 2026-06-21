@@ -13,6 +13,7 @@ import ProductFormDialog from "../../components/admin/ProductFormDialog";
 import { ParsedCsvRow } from "../../components/admin/csvUtils";
 import { useToast } from "../../components/admin/Toast";
 import { getProductSaleInfo } from "../../lib/pricing";
+import { resolveLineSku } from "../../lib/sku";
 
 interface ProductsViewProps {
   products: Product[];
@@ -275,7 +276,7 @@ export default function ProductsView({
                         </div>
                       </td>
                       <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                        {product.sku || `NH-${product.id.slice(-6).toUpperCase()}`}
+                        {resolveLineSku(product)}
                       </td>
                       <td className="px-4 py-3 font-medium whitespace-nowrap">
                         <ProductPrice product={product} />

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import AdminDialog, { AdminInput, AdminSelect, FieldLabel } from "./AdminDialog";
 import { Order, OrderStatus, orderNumber, orderSubtotal } from "../../types";
+import { resolveLineSku } from "../../lib/sku";
 
 interface OrderDetailDialogProps {
   order: Order | null;
@@ -120,6 +121,12 @@ export default function OrderDetailDialog({ order, onClose, onSave }: OrderDetai
               <div key={i} className="flex justify-between p-3 bg-secondary/30 rounded-lg">
                 <div>
                   <p className="font-medium">{item.name}</p>
+                  <p className="text-xs text-muted-foreground font-mono">
+                    {item.sku || resolveLineSku(item, item.selectedVariant)}
+                  </p>
+                  {item.selectedVariant?.label && (
+                    <p className="text-xs text-muted-foreground">{item.selectedVariant.label}</p>
+                  )}
                   <p className="text-xs text-muted-foreground">
                     {item.quantity} × {item.price} kr
                   </p>

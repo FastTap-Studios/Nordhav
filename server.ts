@@ -63,17 +63,23 @@ async function startServer() {
       }
 
       const stripe = getStripe();
-      const lineItems = items.map((item: any) => ({
-        price_data: {
-          currency: "sek",
-          product_data: {
-            name: item.name,
-            images: [item.imageUrl],
+      const lineItems = items.map((item: any) => {
+        const sku = item.sku?.trim?.() || item.selectedVariant?.sku?.trim?.() || "";
+        const variantLabel = item.selectedVariant?.label?.trim?.() || "";
+        const name = variantLabel ? `${item.name} (${variantLabel})` : item.name;
+        return {
+          price_data: {
+            currency: "sek",
+            product_data: {
+              name,
+              images: item.imageUrl ? [item.imageUrl] : [],
+              ...(sku ? { metadata: { sku } } : {}),
+            },
+            unit_amount: Math.round(item.price * 100),
           },
-          unit_amount: Math.round(item.price * 100), // in öre
-        },
-        quantity: item.quantity,
-      }));
+          quantity: item.quantity,
+        };
+      });
 
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ["card"],

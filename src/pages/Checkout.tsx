@@ -28,7 +28,7 @@ import {
 
 export default function Checkout() {
   const navigate = useNavigate();
-  const { cart, totalPrice, clearCart } = useCart();
+  const { cart, totalPrice, clearCart, refreshCartSkus } = useCart();
   const { user } = useAuth();
   const [form, setForm] = useState<CheckoutFormData>(() => {
     const saved = loadCheckoutForm();
@@ -53,6 +53,12 @@ export default function Checkout() {
       navigate("/cart", { replace: true });
     }
   }, [cart.length, orderNumber, navigate]);
+
+  useEffect(() => {
+    if (cart.length > 0) {
+      void refreshCartSkus();
+    }
+  }, [cart.length, refreshCartSkus]);
 
   useEffect(() => {
     saveCheckoutForm(form);
@@ -87,13 +93,14 @@ export default function Checkout() {
     const orderNum = generateOrderNumber();
 
     try {
+      const itemsForOrder = await refreshCartSkus();
       const stripeKey = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
       if (stripeKey) {
         try {
           const res = await fetch("/api/create-checkout-session", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ items: cart, email: form.email.trim() }),
+            body: JSON.stringify({ items: itemsForOrder, email: form.email.trim() }),
           });
           const session = await res.json();
           if (session.id && (window as Window & { Stripe?: (k: string) => { redirectToCheckout: (o: { sessionId: string }) => Promise<void> } }).Stripe) {
@@ -116,7 +123,7 @@ export default function Checkout() {
         status: "paid",
         paymentStatus: "paid",
         createdAt: new Date().toISOString(),
-        items: cart,
+        items: itemsForOrder,
         shippingAddress: {
           name: form.name.trim(),
           street: form.street.trim(),
@@ -131,7 +138,7 @@ export default function Checkout() {
       });
 
       if (!dbService.isSupabaseEnabled()) {
-        for (const item of cart) {
+        for (const item of itemsForOrder) {
           const product = await dbService.getProduct(item.id);
           if (product) {
             await dbService.updateProduct(item.id, {

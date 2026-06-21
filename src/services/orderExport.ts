@@ -1,4 +1,5 @@
 import { Order, orderNumber } from "../types";
+import { resolveLineSku } from "../lib/sku";
 
 function csvCell(value: string | number | undefined | null) {
   const str = value == null ? "" : String(value);
@@ -76,7 +77,18 @@ export function buildOrdersCsv(orders: Order[]) {
 }
 
 export function buildOrderLinesCsv(orders: Order[]) {
-  const headers = ["Ordernummer", "Datum", "Kund", "Produkt", "Antal", "À-pris", "Radtotal", "Status"];
+  const headers = [
+    "Ordernummer",
+    "Datum",
+    "Kund",
+    "SKU",
+    "Produkt",
+    "Variant",
+    "Antal",
+    "À-pris",
+    "Radtotal",
+    "Status",
+  ];
   const rows: string[] = [];
   for (const o of orders) {
     for (const item of o.items) {
@@ -85,7 +97,9 @@ export function buildOrderLinesCsv(orders: Order[]) {
           orderNumber(o.id),
           fmtDate(o.createdAt),
           o.customerName || o.email,
+          item.sku || resolveLineSku(item, item.selectedVariant),
           item.name,
+          item.selectedVariant?.label || "",
           item.quantity,
           item.price.toFixed(2),
           (item.price * item.quantity).toFixed(2),

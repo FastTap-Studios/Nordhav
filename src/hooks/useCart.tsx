@@ -1,7 +1,13 @@
-import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from "react";
+import { useState, useEffect, createContext, useContext, ReactNode, useCallback, useRef } from "react";
 import { CartItem, Product, ProductVariant } from "../types";
 import { cartLineId, getProductStock, hasVariants } from "../lib/variants";
 import { buildCartLine, loadCartFromStorage, saveCartToStorage } from "../lib/cartStorage";
+import { applySyncedCartItems, syncCartSkusFromDb } from "../lib/cartSkuSync";
+import {
+  mergeProductSkuForCart,
+  resolveLineSku,
+  resolveVariantForCart,
+} from "../lib/sku";
 
 interface AddToCartOptions {
   variant?: ProductVariant;
@@ -19,6 +25,7 @@ interface CartContextType {
   isCartOpen: boolean;
   openCart: () => void;
   closeCart: () => void;
+  refreshCartSkus: () => Promise<CartItem[]>;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -26,34 +33,51 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>(() => loadCartFromStorage());
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const cartRef = useRef(cart);
+  cartRef.current = cart;
 
   useEffect(() => {
     saveCartToStorage(cart);
   }, [cart]);
 
-  const addToCart = (product: Product, options?: AddToCartOptions) => {
-    const variant = options?.variant;
-    const qty = Math.max(1, options?.quantity ?? 1);
+  const refreshCartSkus = useCallback(async (): Promise<CartItem[]> => {
+    const synced = await syncCartSkusFromDb(cartRef.current);
+    setCart((prev) => applySyncedCartItems(prev, synced));
+    return synced;
+  }, []);
 
-    if (hasVariants(product) && !variant) {
+  useEffect(() => {
+    void refreshCartSkus();
+  }, [refreshCartSkus]);
+
+  const addToCart = (product: Product, options?: AddToCartOptions) => {
+    const variant = options?.variant
+      ? resolveVariantForCart(product.id, options.variant, product.variants)
+      : undefined;
+    const qty = Math.max(1, options?.quantity ?? 1);
+    const productForCart = mergeProductSkuForCart(product);
+
+    if (hasVariants(productForCart) && !variant) {
       console.warn("Produkt kräver variantval innan den läggs i varukorgen.");
       return;
     }
 
-    const lineId = cartLineId(product.id, variant?.id);
-    const availableStock = variant ? variant.stock : getProductStock(product);
+    const lineId = cartLineId(productForCart.id, variant?.id);
+    const availableStock = variant ? variant.stock : getProductStock(productForCart);
 
     setCart((prev) => {
       const existing = prev.find((item) => item.cartLineId === lineId);
       if (existing) {
         const nextQty = Math.min(existing.quantity + qty, availableStock);
+        const sku = resolveLineSku(productForCart, variant);
+        const selectedVariant = variant ? { ...variant } : undefined;
         return prev.map((item) =>
-          item.cartLineId === lineId ? { ...item, quantity: nextQty } : item
+          item.cartLineId === lineId ? { ...item, quantity: nextQty, sku, selectedVariant } : item
         );
       }
 
       const line = buildCartLine(
-        product,
+        productForCart,
         lineId,
         Math.min(qty, availableStock),
         availableStock,
@@ -86,7 +110,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
   const totalPrice = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-  const openCart = useCallback(() => setIsCartOpen(true), []);
+  const openCart = useCallback(() => {
+    setIsCartOpen(true);
+    void refreshCartSkus();
+  }, [refreshCartSkus]);
   const closeCart = useCallback(() => setIsCartOpen(false), []);
 
   return (
@@ -102,6 +129,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         isCartOpen,
         openCart,
         closeCart,
+        refreshCartSkus,
       }}
     >
       {children}

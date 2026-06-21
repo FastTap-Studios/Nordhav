@@ -39,6 +39,7 @@ import {
 import { mergeProductMedia } from "../lib/supabaseMappers";
 import { getProductSaleInfo } from "../lib/pricing";
 import { resolveImageUrl } from "../lib/images";
+import { formatSkuLabel, resolveLineSku, resolveSkuForClothingSize } from "../lib/sku";
 import { 
   ShoppingCart, Shield, Truck, RotateCcw, ChevronRight, Star, BookmarkCheck, ArrowRight,
   Weight, Ruler, Waves, Palette, Anchor, Zap, Settings, Droplet, Wind, Box, Minus, Plus, Check
@@ -52,16 +53,10 @@ interface ProductSpec {
 
 function getProductSpecs(product: Product): {
   categoryLabel: string;
-  sku: string;
   discountMessage?: { originalPrice: number; percentage: number };
   specs: ProductSpec[];
   targetSpecies: string[];
 } {
-  // Generate SKU
-  const categoryCode = product.category.slice(0, 3).toUpperCase();
-  const indexCode = product.id ? product.id.replace("prod-", "00") : "001";
-  const sku = `Art.nr: NH-${categoryCode}-${indexCode}`;
-
   const discountMessage = getProductSaleInfo(product);
 
   let categoryLabel = "PREMIUM REDSKAP";
@@ -125,7 +120,7 @@ function getProductSpecs(product: Product): {
     .map((item) => item.trim())
     .filter(Boolean);
 
-  return { categoryLabel, sku, discountMessage, specs, targetSpecies };
+  return { categoryLabel, discountMessage, specs, targetSpecies };
 }
 
 export default function ProductDetail() {
@@ -270,7 +265,9 @@ export default function ProductDetail() {
 
     async function fetchProduct() {
       try {
-        if (fullCached && cached) {
+        const needsCore = !cached || !fullCached || !("sku" in cached);
+
+        if (fullCached && cached && !needsCore) {
           void loadRelated(cached.category, cached.id);
           if (cachedVariants && isVariantImageCacheIncomplete(cachedVariants)) {
             void loadSupplemental(cached);
@@ -280,18 +277,20 @@ export default function ProductDetail() {
 
         if (cached) {
           void loadRelated(cached.category, cached.id);
-          void loadSupplemental(cached);
-          return;
         }
 
         const core = await dbService.getProductCore(id);
         if (cancelled) return;
 
         if (!core) {
-          setProduct(null);
-          setLoading(false);
-          setImagesLoading(false);
-          setRelatedLoading(false);
+          if (!cached) {
+            setProduct(null);
+            setLoading(false);
+            setImagesLoading(false);
+            setRelatedLoading(false);
+          } else {
+            void loadSupplemental(cached);
+          }
           return;
         }
 
@@ -375,7 +374,13 @@ export default function ProductDetail() {
     );
   }
 
-  const { categoryLabel, sku, discountMessage, specs, targetSpecies } = getProductSpecs(product);
+  const { categoryLabel, discountMessage, specs, targetSpecies } = getProductSpecs(product);
+  const displaySku = formatSkuLabel(
+    selectedVariant
+      ? resolveLineSku(product, selectedVariant)
+      : resolveSkuForClothingSize(product, selectedSize) ??
+          resolveLineSku(product, undefined)
+  );
 
   const productHasVariants = hasVariants(product);
   const colorVariantPicker = usesColorVariantPicker(product);
@@ -651,7 +656,7 @@ export default function ProductDetail() {
                 </h1>
                 
                 <p className="text-[11px] font-mono text-slate-400 font-semibold opacity-85">
-                  {sku}
+                  {displaySku}
                 </p>
               </div>
 
