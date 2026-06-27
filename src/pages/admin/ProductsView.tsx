@@ -7,6 +7,7 @@ import {
   Search,
   Upload,
   Package,
+  Loader2,
 } from "lucide-react";
 import ProductCsvImport from "../../components/admin/ProductCsvImport";
 import ProductFormDialog from "../../components/admin/ProductFormDialog";
@@ -20,6 +21,7 @@ interface ProductsViewProps {
   loading: boolean;
   onRefresh: () => void;
   onSave: (product: Partial<Product>, editingId: string | null) => Promise<void>;
+  onLoadProduct: (id: string) => Promise<Product | null>;
   onDelete: (id: string) => Promise<void>;
   onSeed: () => Promise<void>;
 }
@@ -80,6 +82,7 @@ export default function ProductsView({
   loading,
   onRefresh,
   onSave,
+  onLoadProduct,
   onDelete,
   onSeed,
 }: ProductsViewProps) {
@@ -88,6 +91,7 @@ export default function ProductsView({
   const [csvOpen, setCsvOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [loadingEditId, setLoadingEditId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
@@ -105,9 +109,19 @@ export default function ProductsView({
     setFormOpen(true);
   };
 
-  const openEdit = (product: Product) => {
-    setEditingProduct(product);
-    setFormOpen(true);
+  const openEdit = async (product: Product) => {
+    setLoadingEditId(product.id);
+    try {
+      const full = await onLoadProduct(product.id);
+      if (!full) {
+        toast("Kunde inte hämta produkten.", "error");
+        return;
+      }
+      setEditingProduct(full);
+      setFormOpen(true);
+    } finally {
+      setLoadingEditId(null);
+    }
   };
 
   const handleBulkImport = async (rows: ParsedCsvRow[]) => {
@@ -217,11 +231,16 @@ export default function ProductsView({
                   <div className="flex shrink-0 flex-col gap-1">
                     <button
                       type="button"
-                      onClick={() => openEdit(product)}
-                      className="p-2 text-muted-foreground hover:text-primary rounded-lg hover:bg-secondary transition-colors"
+                      onClick={() => void openEdit(product)}
+                      disabled={!!loadingEditId}
+                      className="p-2 text-muted-foreground hover:text-primary rounded-lg hover:bg-secondary transition-colors disabled:opacity-50"
                       aria-label="Redigera"
                     >
-                      <Pencil className="w-4 h-4" />
+                      {loadingEditId === product.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Pencil className="w-4 h-4" />
+                      )}
                     </button>
                     <button
                       type="button"
@@ -291,11 +310,16 @@ export default function ProductsView({
                         <div className="flex justify-end gap-1">
                           <button
                             type="button"
-                            onClick={() => openEdit(product)}
-                            className="p-2 text-muted-foreground hover:text-primary rounded-lg hover:bg-secondary transition-colors"
+                            onClick={() => void openEdit(product)}
+                            disabled={!!loadingEditId}
+                            className="p-2 text-muted-foreground hover:text-primary rounded-lg hover:bg-secondary transition-colors disabled:opacity-50"
                             aria-label="Redigera"
                           >
-                            <Pencil className="w-4 h-4" />
+                            {loadingEditId === product.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Pencil className="w-4 h-4" />
+                            )}
                           </button>
                           <button
                             type="button"

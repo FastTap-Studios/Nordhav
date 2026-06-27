@@ -2,7 +2,7 @@ import { useState, useEffect, createContext, useContext, ReactNode, useCallback,
 import { CartItem, Product, ProductVariant } from "../types";
 import { cartLineId, getProductStock, hasVariants } from "../lib/variants";
 import { buildCartLine, loadCartFromStorage, saveCartToStorage } from "../lib/cartStorage";
-import { applySyncedCartItems, syncCartSkusFromDb } from "../lib/cartSkuSync";
+import { applySyncedCartItems, syncCartSkusFromDb, type SyncCartSkusOptions } from "../lib/cartSkuSync";
 import {
   mergeProductSkuForCart,
   resolveLineSku,
@@ -25,7 +25,7 @@ interface CartContextType {
   isCartOpen: boolean;
   openCart: () => void;
   closeCart: () => void;
-  refreshCartSkus: () => Promise<CartItem[]>;
+  refreshCartSkus: (options?: SyncCartSkusOptions) => Promise<CartItem[]>;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -40,8 +40,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
     saveCartToStorage(cart);
   }, [cart]);
 
-  const refreshCartSkus = useCallback(async (): Promise<CartItem[]> => {
-    const synced = await syncCartSkusFromDb(cartRef.current);
+  const refreshCartSkus = useCallback(async (options?: SyncCartSkusOptions): Promise<CartItem[]> => {
+    const synced = await syncCartSkusFromDb(cartRef.current, options);
     setCart((prev) => applySyncedCartItems(prev, synced));
     return synced;
   }, []);
@@ -110,10 +110,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
   const totalPrice = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-  const openCart = useCallback(() => {
-    setIsCartOpen(true);
-    void refreshCartSkus();
-  }, [refreshCartSkus]);
+  const openCart = useCallback(() => setIsCartOpen(true), []);
   const closeCart = useCallback(() => setIsCartOpen(false), []);
 
   return (

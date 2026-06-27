@@ -48,6 +48,25 @@ export function productFromRow(row: any): Product {
   };
 }
 
+/** Admin-lista — utan beskrivningar, galleri och variants-json. */
+export function productAdminFromRow(row: any): Product {
+  return {
+    id: row.id,
+    name: row.name,
+    description: "",
+    price: Number(row.price),
+    imageUrl: resolveImageUrl(row.image_url ?? ""),
+    stock: row.stock ?? 0,
+    category: row.category ?? "Beten",
+    createdAt: row.created_at,
+    compareAtPrice: row.compare_at_price != null ? Number(row.compare_at_price) : undefined,
+    sku: row.sku ?? undefined,
+    isActive: row.is_active ?? true,
+    isFeatured: row.is_featured ?? false,
+    variantLabel: row.variant_label ?? undefined,
+  };
+}
+
 /** Butikslistor — utan image_urls, variantbilder och tung variants-json. */
 export function productListingFromRow(row: any): Product {
   return {

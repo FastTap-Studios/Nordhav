@@ -30,7 +30,7 @@ export default function AdminDashboard() {
     setLoading(true);
     try {
       const [productsData, ordersData] = await Promise.all([
-        dbService.getProducts(),
+        dbService.getProductsForAdmin(),
         dbService.getOrders(),
       ]);
       setProducts(productsData);
@@ -207,6 +207,7 @@ export default function AdminDashboard() {
                 loading={loading}
                 onRefresh={fetchData}
                 onSave={handleSaveProduct}
+                onLoadProduct={(id) => dbService.getProduct(id)}
                 onDelete={handleDeleteProduct}
                 onSeed={seedData}
               />

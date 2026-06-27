@@ -77,6 +77,27 @@ export function setCachedProduct(product: Product, options?: { fullDetail?: bool
   }
 }
 
+/** Uppdatera bara SKU i cachen (t.ex. efter lätt varukorgssynk). */
+export function mergeCachedProductSku(id: string, sku: string | undefined) {
+  if (!sku?.trim() || isCacheStale()) return;
+  const existing = productsById.get(id);
+  if (!existing) {
+    productsById.set(id, {
+      id,
+      name: "",
+      description: "",
+      price: 0,
+      imageUrl: "",
+      stock: 0,
+      category: "",
+      createdAt: "",
+      sku: sku.trim(),
+    });
+    return;
+  }
+  setCachedProduct({ ...existing, sku: sku.trim() });
+}
+
 export function isFullDetailCached(id: string): boolean {
   if (isCacheStale()) return false;
   return fullDetailIds.has(id);

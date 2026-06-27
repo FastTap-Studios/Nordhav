@@ -1,8 +1,9 @@
-import { Product, Order } from "../types";
+import { Product, Order, ProductVariant } from "../types";
 import { getSupabaseSafe, isSupabaseConfigured } from "../lib/supabase";
 import {
   orderFromRow,
   orderToRow,
+  productAdminFromRow,
   productDetailCoreFromRow,
   productFromRow,
   productListingFromRow,
@@ -21,6 +22,15 @@ import { normalizeVariants } from "../lib/variants";
 
 const LISTING_FIELDS =
   "id, name, price, category, image_url, description, stock, is_active, is_featured, created_at, variant_label, compare_at_price, sku";
+
+const ADMIN_LIST_FIELDS =
+  "id, name, price, category, image_url, stock, is_active, is_featured, created_at, compare_at_price, sku, variant_label";
+
+export interface ProductSkuSnapshot {
+  sku?: string;
+  variantLabel?: string;
+  variants: ProductVariant[];
+}
 
 let listingFetchPromise: Promise<Product[]> | null = null;
 
@@ -230,6 +240,73 @@ export const dbService = {
       return getLocalProducts();
     }
     return (data ?? []).map(productFromRow);
+  },
+
+  /** Lätt produktlista för admin — utan beskrivningar, galleri och variants-json. */
+  async getProductsForAdmin(): Promise<Product[]> {
+    const sb = getSupabaseSafe();
+    if (!sb) return getLocalProducts().map(stripProductForListing);
+
+    const { data, error } = await sb
+      .from("products")
+      .select(ADMIN_LIST_FIELDS)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      logSupabaseError("getProductsForAdmin", error);
+      return getLocalProducts().map(stripProductForListing);
+    }
+    return (data ?? []).map(productAdminFromRow);
+  },
+
+  /** Batch-hämtning av SKU för varukorg — en fråga, minimal payload. */
+  async getProductSkusForCart(ids: string[]): Promise<Map<string, ProductSkuSnapshot>> {
+    const uniqueIds = [...new Set(ids.filter(Boolean))];
+    const result = new Map<string, ProductSkuSnapshot>();
+    if (!uniqueIds.length) return result;
+
+    const sb = getSupabaseSafe();
+    if (!sb) {
+      for (const id of uniqueIds) {
+        const local = getLocalProducts().find((p) => p.id === id);
+        if (!local) continue;
+        result.set(id, {
+          sku: local.sku,
+          variantLabel: local.variantLabel,
+          variants: local.variants ?? [],
+        });
+      }
+      return result;
+    }
+
+    const { data, error } = await sb
+      .from("products")
+      .select("id, sku, variants, variant_label")
+      .in("id", uniqueIds);
+
+    if (error) {
+      logSupabaseError("getProductSkusForCart", error);
+      return result;
+    }
+
+    for (const row of data ?? []) {
+      const variants = normalizeVariants(row.variants) ?? [];
+      result.set(row.id, {
+        sku: row.sku?.trim() || undefined,
+        variantLabel: row.variant_label ?? undefined,
+        variants: variants.map(({ id, sku, label, stock, color, size, weightGrams }) => ({
+          id,
+          sku,
+          label,
+          stock,
+          color,
+          size,
+          weightGrams,
+        })),
+      });
+    }
+
+    return result;
   },
 
   /** Snabb produktlista för shop/start — utan variants/image_urls. */

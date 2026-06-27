@@ -55,12 +55,6 @@ export default function Checkout() {
   }, [cart.length, orderNumber, navigate]);
 
   useEffect(() => {
-    if (cart.length > 0) {
-      void refreshCartSkus();
-    }
-  }, [cart.length, refreshCartSkus]);
-
-  useEffect(() => {
     saveCheckoutForm(form);
   }, [form]);
 
@@ -93,7 +87,7 @@ export default function Checkout() {
     const orderNum = generateOrderNumber();
 
     try {
-      const itemsForOrder = await refreshCartSkus();
+      const itemsForOrder = await refreshCartSkus({ force: true });
       const stripeKey = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
       if (stripeKey) {
         try {
